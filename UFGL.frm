@@ -50,6 +50,20 @@ Attribute VB_Exposed = False
 '   "Toutes les semaines" dans cboJour applique la MEME condition aux
 '   7 jours (Lundi a Dimanche) en un seul clic sur "Planifier".
 '
+' *** CORRECTIONS DE CETTE VERSION ***
+'   - Au demarrage, AUCUN jour n'est preselectionne dans cboJour (avant :
+'     "Lundi" etait coche par defaut). L'utilisateur doit choisir un
+'     jour ou "Toutes les semaines" explicitement avant de planifier.
+'   - OFF et TT sont totalement independants du jour choisi : cocher OFF
+'     ou TT n'applique JAMAIS "toute la semaine" tout seul ; c'est
+'     uniquement la selection dans cboJour qui determine le(s) jour(s)
+'     cible(s). Handlers optOFF_Click/optTT_Click ajoutes pour le garantir.
+'   - Rappel : pour pouvoir cocher Vague/Reduit EN MEME TEMPS que OFF ou
+'     TT (et meme avec "Toutes les semaines"), optChoixVague et
+'     optChoixReduit doivent avoir GroupName = grpHoraire dans le
+'     Designer (voir plus haut). Sans ce reglage, VBA les rend
+'     mutuellement exclusifs avec optTT/optOFF.
+'
 ' WORKFLOW :
 '   1) Choisir un jour (ou "Toutes les semaines"), une condition
 '      (OFF / TT / normal) et un horaire (Vague ou Shift Reduit + le
@@ -96,7 +110,9 @@ Private Sub UserForm_Initialize()
     cboJour.AddItem "Samedi"
     cboJour.AddItem "Dimanche"
     cboJour.AddItem "Toutes les semaines"
-    cboJour.ListIndex = 0   ' par defaut : Lundi
+    cboJour.ListIndex = -1   ' AUCUN jour selectionne par defaut (Lundi n'est plus impose) :
+                              ' l'utilisateur doit choisir explicitement un jour ou
+                              ' "Toutes les semaines" avant de pouvoir cliquer Planifier.
 
     ' --- Vague (shift), par defaut 7h-17h ---
     optVague1.Value = True
@@ -167,6 +183,31 @@ Private Sub optRed2_Click(): txtRedSpec.Enabled = False: End Sub
 Private Sub optRed3_Click(): txtRedSpec.Enabled = False: End Sub
 Private Sub optRed4_Click(): txtRedSpec.Enabled = False: End Sub
 Private Sub optRed5_Click(): txtRedSpec.Enabled = False: End Sub
+
+' ------------------------------------------------------------
+' optOFF / optTT : ces 2 handlers existent uniquement pour garantir
+' explicitement qu'AUCUN code ne touche cboJour ni optChoixVague /
+' optChoixReduit quand on coche OFF ou TT. Le jour applique reste
+' TOUJOURS exactement celui choisi dans cboJour (un seul jour, ou
+' les 7 jours si "Toutes les semaines" est selectionne) : cocher OFF
+' ou TT ne force JAMAIS "toute la semaine" si un jour precis est
+' selectionne dans cboJour.
+' De meme, OFF/TT (mode) et Vague/Reduit (horaire) sont 2 groupes
+' INDEPENDANTS : cocher OFF ou TT n'empeche pas de cocher Vague ou
+' Shift Reduit egalement (utile si vous decochez OFF/TT ensuite).
+' IMPORTANT : pour que Vague/Reduit restent cochables EN MEME TEMPS
+' que OFF/TT et que "Toutes les semaines", verifiez bien dans le
+' Designer que optChoixVague et optChoixReduit ont la MEME propriete
+' GroupName = grpHoraire (voir en-tete du fichier). Sans cela, VBA
+' les considere comme faisant partie du groupe par defaut du
+' formulaire et les rend mutuellement exclusifs avec optTT/optOFF.
+' ------------------------------------------------------------
+Private Sub optOFF_Click()
+    ' Volontairement vide : ne touche ni cboJour, ni optChoixVague/optChoixReduit.
+End Sub
+Private Sub optTT_Click()
+    ' Volontairement vide : ne touche ni cboJour, ni optChoixVague/optChoixReduit.
+End Sub
 
 ' ------------------------------------------------------------
 ' Lit l'horaire choisi dans la section VAGUE.
