@@ -64,6 +64,30 @@ Attribute VB_Exposed = False
 '     Designer (voir plus haut). Sans ce reglage, VBA les rend
 '     mutuellement exclusifs avec optTT/optOFF.
 '
+' *** MISE A JOUR : optTT / optChoixVague / optChoixReduit en ToggleButton ***
+'   Ces 3 controles ont ete changes d'OptionButton vers ToggleButton pour ne
+'   plus etre lies automatiquement a un groupe d'exclusion mutuelle. Un
+'   ToggleButton n'impose PLUS l'exclusivite tout seul : c'est desormais le
+'   code (optOFF_Click / optTT_Click / optChoixVague_Click / optChoixReduit_Click,
+'   plus bas) qui force manuellement :
+'     - optOFF et optTT restent mutuellement exclusifs entre eux (un jour ne
+'       peut pas etre a la fois OFF et TT), mais ne touchent jamais cboJour.
+'     - optChoixVague et optChoixReduit restent mutuellement exclusifs entre
+'       eux (un seul horaire actif a la fois), mais restent independants de
+'       optOFF/optTT.
+'   Hypothese : optOFF reste un OptionButton classique et le controle Reduit
+'   s'appelle toujours "optChoixReduit". Si vous l'avez renomme differemment
+'   (ex: optChoixRed), remplacez le nom dans le code ci-dessous.
+'
+' *** NOUVEAU : lblTerminal (rapport en direct) ***
+'   Un Label nomme lblTerminal a ete ajoute. A chaque clic sur "Planifier",
+'   MettreAJourTerminal (plus bas) y affiche : le detail jour par jour de
+'   chaque collaborateur deja planifie, puis la liste des collaborateurs de
+'   lstCollabs qui n'ont encore AUCUN jour defini.
+'   Conseil Designer pour lblTerminal : WordWrap = True, AutoSize = False,
+'   redimensionner assez haut/large, police a chasse fixe (ex: Consolas)
+'   pour un rendu "terminal" lisible.
+'
 ' WORKFLOW :
 '   1) Choisir un jour (ou "Toutes les semaines"), une condition
 '      (OFF / TT / normal) et un horaire (Vague ou Shift Reduit + le
@@ -136,6 +160,8 @@ Private Sub UserForm_Initialize()
 
     m_nbAffect = 0
     ReDim m_affectations(1 To 1)
+
+    MettreAJourTerminal
 End Sub
 
 ' Remplit lstCollabs avec les collaborateurs dont le projet = GOOGLE LEADS.
@@ -203,10 +229,27 @@ Private Sub optRed5_Click(): txtRedSpec.Enabled = False: End Sub
 ' formulaire et les rend mutuellement exclusifs avec optTT/optOFF.
 ' ------------------------------------------------------------
 Private Sub optOFF_Click()
-    ' Volontairement vide : ne touche ni cboJour, ni optChoixVague/optChoixReduit.
+    ' optOFF est reste OptionButton : s'il vient d'etre coche, on decoche
+    ' manuellement optTT (ToggleButton) puisque celui-ci n'est plus dans
+    ' le meme groupe d'exclusion automatique. Ne touche ni cboJour, ni
+    ' optChoixVague/optChoixReduit.
+    If optOFF.Value Then optTT.Value = False
 End Sub
 Private Sub optTT_Click()
-    ' Volontairement vide : ne touche ni cboJour, ni optChoixVague/optChoixReduit.
+    ' optTT est un ToggleButton : on force manuellement l'exclusivite avec
+    ' optOFF. Ne touche ni cboJour, ni optChoixVague/optChoixReduit.
+    If optTT.Value Then optOFF.Value = False
+End Sub
+
+' optChoixVague / optChoixReduit sont maintenant des ToggleButton : ils ne
+' s'excluent plus automatiquement (l'ancien GroupName=grpHoraire n'a plus
+' d'effet sur un ToggleButton). On force ici manuellement qu'un seul des
+' deux soit actif, sans jamais toucher optOFF/optTT ni cboJour.
+Private Sub optChoixVague_Click()
+    If optChoixVague.Value Then optChoixReduit.Value = False
+End Sub
+Private Sub optChoixReduit_Click()
+    If optChoixReduit.Value Then optChoixVague.Value = False
 End Sub
 
 ' ------------------------------------------------------------
@@ -357,6 +400,67 @@ Private Function ResumeAffectation(aff As AffectationGL) As String
 End Function
 
 ' ------------------------------------------------------------
+' Construit et affiche dans lblTerminal l'etat du planning en cours :
+'   - pour chaque collaborateur deja planifie, le detail jour par jour
+'     (reutilise ResumeAffectation : mode + horaire par jour)
+'   - la liste des collaborateurs de lstCollabs n'ayant ENCORE AUCUN
+'     jour defini (non planifies)
+' Appelee a chaque clic sur "Planifier".
+' ------------------------------------------------------------
+Private Sub MettreAJourTerminal()
+    Dim s As String
+    s = "=== PLANNING EN COURS (" & m_nbAffect & " collaborateur(s)) ===" & vbCrLf & vbCrLf
+
+    Dim k As Integer
+    If m_nbAffect = 0 Then
+        s = s & "(aucun collaborateur planifie pour le moment)" & vbCrLf
+    Else
+        For k = 1 To m_nbAffect
+            s = s & m_affectations(k).nomComplet & " :" & vbCrLf
+            s = s & "    " & ResumeAffectation(m_affectations(k)) & vbCrLf
+        Next k
+    End If
+
+    ' --- Collaborateurs de la liste sans aucun jour planifie ---
+    Dim r As Integer, j As Integer
+    Dim nomComplet As String
+    Dim nonPlanifies As String: nonPlanifies = ""
+    Dim nbNonPlan As Integer: nbNonPlan = 0
+
+    For r = 0 To lstCollabs.ListCount - 1
+        nomComplet = lstCollabs.List(r, 0)
+        Dim idxAff As Integer: idxAff = -1
+        For k = 1 To m_nbAffect
+            If UCase(m_affectations(k).nomComplet) = UCase(nomComplet) Then
+                idxAff = k
+                Exit For
+            End If
+        Next k
+
+        Dim aAuMoinsUnJour As Boolean: aAuMoinsUnJour = False
+        If idxAff > 0 Then
+            For j = 1 To 7
+                If m_affectations(idxAff).jours(j).Defini Then aAuMoinsUnJour = True: Exit For
+            Next j
+        End If
+
+        If Not aAuMoinsUnJour Then
+            nonPlanifies = nonPlanifies & "  - " & nomComplet & vbCrLf
+            nbNonPlan = nbNonPlan + 1
+        End If
+    Next r
+
+    s = s & vbCrLf & "--- Collaborateurs non planifies (" & nbNonPlan & ") ---" & vbCrLf
+    If nbNonPlan = 0 Then
+        s = s & "  (aucun, tous ont au moins un jour planifie)" & vbCrLf
+    Else
+        s = s & nonPlanifies
+    End If
+
+    lblTerminal.Caption = s
+End Sub
+
+' ------------------------------------------------------------
 ' BOUTON PLANIFIER : applique la condition courante (mode + horaire)
 ' au(x) jour(s) choisi(s) dans cboJour, pour tous les collaborateurs
 ' selectionnes dans lstCollabs (multi-selection).
@@ -396,6 +500,8 @@ Private Sub cmdPlanifier_Click()
         MsgBox "Selectionnez au moins un collaborateur dans la liste (Ctrl+clic pour plusieurs).", vbExclamation
         Exit Sub
     End If
+
+    MettreAJourTerminal
 
     MsgBox nbSelect & " collaborateur(s) planifie(s) pour " & LibelleJoursCibles(joursCibles, nbJours) & ".", vbInformation
 End Sub
