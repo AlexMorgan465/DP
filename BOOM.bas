@@ -28,15 +28,21 @@ Type Collaborateur
     RenforcItaly    As Boolean
 End Type
 
+' Condition d'un seul jour (Lundi..Dimanche) pour un collaborateur GOOGLE LEADS,
+' saisie depuis UFGL (combo "Jour" + TT/OFF/Vague/Shift Reduit).
+Type JourAffectationGL
+    Defini          As Boolean   ' False = jour jamais planifie (traite comme OFF a la generation)
+    Mode            As String    ' "TRAVAIL", "TT" ou "OFF"
+    Entree          As String    ' "" si OFF
+    Sortie          As String    ' "" si OFF
+End Type
+
 ' Une "affectation" GOOGLE LEADS planifiee depuis UFGL : un collaborateur
-' + le shift/condition qui lui a ete affecte via le bouton "Planifier".
+' + la condition (mode + horaire) de chacun des 7 jours de la semaine,
+' chaque jour pouvant etre planifie independamment (TT / OFF / Vague / Shift Reduit).
 Type AffectationGL
     nomComplet      As String
-    EntreeVague     As String
-    SortieVague     As String
-    EntreeReduit    As String
-    SortieReduit    As String
-    ModeDimanche    As String   ' "TT", "OFF" ou "TRAVAIL"
+    jours(1 To 7)   As JourAffectationGL   ' 1=Lundi ... 7=Dimanche
 End Type
 
 Dim JOURS(1 To 7) As String
@@ -1686,21 +1692,12 @@ NextAff:
     CalculerCumulsSemaine
 End Sub
 
-' Construit et ecrit la ligne d'un seul collaborateur pour une affectation donnee
-' (Vague Lundi->Samedi + Shift Reduit/TT/OFF le Dimanche).
+' Construit et ecrit la ligne d'un seul collaborateur pour une affectation donnee.
+' Chaque jour (1=Lundi..7=Dimanche) a sa propre condition, saisie individuellement
+' depuis UFGL : TT / OFF / Vague / Shift Reduit. Un jour jamais planifie (Defini=False)
+' est traite comme OFF par defaut.
 Sub EcrireLigneGL_UneAffectation(ws As Worksheet, ligne As Integer, _
         c As Collaborateur, aff As AffectationGL)
-
-    ' Pause = entree + 5h, duree 1h (meme regle que les autres feuilles)
-    Dim pD As String: pD = AjouterMinutes(aff.EntreeVague, 300)
-    Dim pF As String: pF = AjouterMinutes(pD, 60)
-
-    Dim pDReduit As String, pFReduit As String
-    pDReduit = AjouterMinutes(aff.EntreeReduit, 300)
-    pFReduit = AjouterMinutes(pDReduit, 60)
-    If HeureEnMinutes(pDReduit) >= HeureEnMinutes(aff.SortieReduit) Then
-        pDReduit = "": pFReduit = ""
-    End If
 
     Dim cellules(1 To 7) As String
     Dim entTab(1 To 7) As String
@@ -1709,28 +1706,32 @@ Sub EcrireLigneGL_UneAffectation(ws As Worksheet, ligne As Integer, _
     Dim pfTab(1 To 7) As String
     Dim j As Integer
 
-    For j = 1 To 6
-        cellules(j) = FormatCelluleJour(aff.EntreeVague, aff.SortieVague, pD, pF)
-        entTab(j) = aff.EntreeVague: sorTab(j) = aff.SortieVague
-        pdTab(j) = pD: pfTab(j) = pF
-    Next j
+    For j = 1 To 7
+        With aff.jours(j)
+            Select Case True
+                Case Not .Defini, UCase(.Mode) = "OFF"
+                    cellules(j) = "OFF"
+                    entTab(j) = "": sorTab(j) = "": pdTab(j) = "": pfTab(j) = ""
+                Case Else
+                    ' Pause = entree + 5h, duree 1h (meme regle que les autres feuilles)
+                    Dim pD As String: pD = AjouterMinutes(.Entree, 300)
+                    Dim pF As String: pF = AjouterMinutes(pD, 60)
+                    If HeureEnMinutes(pD) >= HeureEnMinutes(.Sortie) Then
+                        pD = "": pF = ""
+                    End If
 
-    ' Dimanche (j=7)
-    Select Case UCase(aff.ModeDimanche)
-        Case "OFF"
-            cellules(7) = "OFF"
-            entTab(7) = "": sorTab(7) = "": pdTab(7) = "": pfTab(7) = ""
-        Case "TT"
-            Dim contenuTT As String
-            contenuTT = FormatCelluleJour(aff.EntreeReduit, aff.SortieReduit, pDReduit, pFReduit)
-            cellules(7) = "TT " & contenuTT
-            entTab(7) = aff.EntreeReduit: sorTab(7) = aff.SortieReduit
-            pdTab(7) = pDReduit: pfTab(7) = pFReduit
-        Case Else ' "TRAVAIL" : shift reduit sans TT
-            cellules(7) = FormatCelluleJour(aff.EntreeReduit, aff.SortieReduit, pDReduit, pFReduit)
-            entTab(7) = aff.EntreeReduit: sorTab(7) = aff.SortieReduit
-            pdTab(7) = pDReduit: pfTab(7) = pFReduit
-    End Select
+                    Dim contenu As String
+                    contenu = FormatCelluleJour(.Entree, .Sortie, pD, pF)
+                    If UCase(.Mode) = "TT" Then
+                        cellules(j) = "TT " & contenu
+                    Else
+                        cellules(j) = contenu
+                    End If
+                    entTab(j) = .Entree: sorTab(j) = .Sortie
+                    pdTab(j) = pD: pfTab(j) = pF
+            End Select
+        End With
+    Next j
 
     AppliquerCongesEtTT cellules, entTab, sorTab, pdTab, pfTab, c
     EcrireLigneAvecConsolidation ws, ligne, c, cellules, entTab, sorTab, pdTab, pfTab
@@ -2344,6 +2345,284 @@ Sub ExporterPlanningToutesActivites()
     MsgBox "Export genere : feuille '" & nomFeuille & "' (" & (ligneE - 3) & " collaborateurs, toutes activites).", _
            vbInformation, "Export Planning"
 End Sub
+
+' ============================================================
+' EXPORT PLANNING PAR ACTIVITE - HEURE FRANCAISE (HF) / HEURE MAROCAINE (HM)
+' Bouton "Exporter" (UFMain.cmdExporter_Click appelle ExporterPlanningsParActivite).
+' Pour chaque activite (AFEDIM, ACCESSIBILITE, CM Leasing, GLF, EBRA,
+' GOOGLE LEADS, TLV, FACTO, DAC), on genere 2 classeurs Excel independants,
+' dans la meme mise en forme que la feuille modele :
+'   - un fichier "..._HM_..." avec les heures telles que saisies (Heure Marocaine)
+'   - un fichier "..._HF_..." avec les heures decalees de +1h (Heure Francaise)
+' Une activite sans aucune ligne pour la semaine cible est simplement ignoree
+' (aucun fichier vide n'est cree).
+' ============================================================
+Sub ExporterPlanningsParActivite()
+    If Not FeuilleExiste("PLANNING") Then
+        MsgBox "La feuille PLANNING n'existe pas encore." & Chr(10) & _
+               "Generez d'abord un planning.", vbExclamation
+        Exit Sub
+    End If
+
+    JOURS(1) = "Lundi": JOURS(2) = "Mardi": JOURS(3) = "Mercredi"
+    JOURS(4) = "Jeudi": JOURS(5) = "Vendredi": JOURS(6) = "Samedi": JOURS(7) = "Dimanche"
+
+    Dim dossier As String
+    dossier = ChoisirDossierExport()
+    If dossier = "" Then Exit Sub
+
+    Dim sem As Integer
+    sem = Application.WorksheetFunction.WeekNum(LundiSemaine(), 2)
+
+    Dim activites As Variant
+    activites = Array("AFEDIM", "ACCESSIBILITE", "CM Leasing", "GLF", "EBRA", _
+                       "GOOGLE LEADS", "TLV", "FACTO", "DAC")
+
+    Application.ScreenUpdating = False
+    On Error GoTo ErrHandler
+
+    Dim nbFichiers As Integer: nbFichiers = 0
+    Dim a As Integer
+    For a = 0 To UBound(activites)
+        If ExporterUneActiviteHF_HM(CStr(activites(a)), sem, dossier) Then
+            nbFichiers = nbFichiers + 2
+        End If
+    Next a
+
+Cleanup:
+    Application.ScreenUpdating = True
+    If nbFichiers = 0 Then
+        MsgBox "Aucune ligne trouvee dans PLANNING pour la semaine " & sem & _
+               " : aucun fichier exporte.", vbExclamation
+    Else
+        MsgBox nbFichiers & " fichier(s) exporte(s) (1 HF + 1 HM par activite) dans :" & _
+               Chr(10) & dossier, vbInformation, "Export termine"
+    End If
+    Exit Sub
+ErrHandler:
+    Application.ScreenUpdating = True
+    MsgBox "Erreur " & Err.Number & " : " & Err.Description, vbCritical
+End Sub
+
+' Demande a l'utilisateur un dossier de destination pour l'export.
+Function ChoisirDossierExport() As String
+    Dim fd As FileDialog
+    Set fd = Application.FileDialog(msoFileDialogFolderPicker)
+    fd.Title = "Choisir le dossier de destination pour l'export"
+    If fd.Show = -1 Then
+        ChoisirDossierExport = fd.SelectedItems(1)
+    Else
+        ChoisirDossierExport = ""
+    End If
+End Function
+
+' Genere les 2 classeurs (HM puis HF) pour UNE activite. Retourne False si
+' aucune ligne PLANNING ne correspond a cette activite pour la semaine donnee
+' (aucun fichier n'est alors cree).
+Function ExporterUneActiviteHF_HM(activite As String, sem As Integer, dossier As String) As Boolean
+    ExporterUneActiviteHF_HM = False
+
+    Dim wsP As Worksheet: Set wsP = ThisWorkbook.Sheets("PLANNING")
+    Dim lastP As Long: lastP = wsP.Cells(wsP.Rows.Count, 1).End(xlUp).Row
+
+    Dim lignes() As Long
+    Dim nbL As Long: nbL = 0
+    Dim r As Long
+    For r = 2 To lastP
+        If CStr(wsP.Cells(r, 1).Value) = CStr(sem) And _
+           UCase(Trim(CStr(wsP.Cells(r, 7).Value))) = UCase(activite) Then
+            nbL = nbL + 1
+            ReDim Preserve lignes(1 To nbL)
+            lignes(nbL) = r
+        End If
+    Next r
+    If nbL = 0 Then Exit Function
+
+    Dim libelles As Variant: libelles = Array("HM", "HF")
+    Dim decalages As Variant: decalages = Array(0, 1)   ' HM = tel quel, HF = HM + 1h
+
+    Dim i As Integer
+    For i = 0 To 1
+        Dim wb As Workbook: Set wb = Workbooks.Add(xlWBATWorksheet)
+        Dim wsE As Worksheet: Set wsE = wb.Sheets(1)
+        wsE.Name = "S" & sem
+
+        EcrireFeuilleExportActivite wsE, wsP, lignes, nbL, sem, activite, CInt(decalages(i))
+
+        Dim nomActFichier As String: nomActFichier = Replace(activite, " ", "_")
+        Dim nomFichier As String
+        nomFichier = dossier & Application.PathSeparator & nomActFichier & "_" & _
+                     libelles(i) & "_S" & sem & "_" & Format(Date, "yyyy-mm-dd") & ".xlsx"
+
+        Application.DisplayAlerts = False
+        wb.SaveAs Filename:=nomFichier, FileFormat:=xlOpenXMLWorkbook
+        wb.Close SaveChanges:=False
+        Application.DisplayAlerts = True
+    Next i
+
+    ExporterUneActiviteHF_HM = True
+End Function
+
+' Ecrit la feuille au format modele (Zones | Collaborateur | Debut/Fin de shift x7
+' | OFF | NB heures planifiees | TT | Commentaire) pour UNE activite, en decalant
+' toutes les heures de decalageH heures (0 = Heure Marocaine, 1 = Heure Francaise).
+Sub EcrireFeuilleExportActivite(wsE As Worksheet, wsP As Worksheet, lignes() As Long, _
+        nbLignes As Long, sem As Integer, activite As String, decalageH As Integer)
+
+    wsE.Cells(1, 1).Value = "S" & sem
+    wsE.Range(wsE.Cells(1, 1), wsE.Cells(2, 1)).Merge
+    wsE.Range(wsE.Cells(1, 2), wsE.Cells(2, 2)).Merge
+    wsE.Cells(2, 1).Value = "Zones"
+    wsE.Cells(2, 2).Value = "Collaborateur"
+
+    Dim j As Integer
+    For j = 1 To 7
+        Dim colDeb As Integer: colDeb = 3 + (j - 1) * 2
+        Dim colFin As Integer: colFin = colDeb + 1
+        Dim dJour As Date: dJour = DateDuJour(j)
+        wsE.Range(wsE.Cells(1, colDeb), wsE.Cells(1, colFin)).Merge
+        wsE.Cells(1, colDeb).Value = Format(dJour, "dddd dd/mm/yyyy")
+        wsE.Cells(2, colDeb).Value = "Debut de shift"
+        wsE.Cells(2, colFin).Value = "Fin de shift"
+    Next j
+
+    Dim colOFF As Integer: colOFF = 3 + 7 * 2
+    Dim colHeures As Integer: colHeures = colOFF + 1
+    Dim colTT As Integer: colTT = colHeures + 1
+    Dim colComm As Integer: colComm = colTT + 1
+
+    wsE.Range(wsE.Cells(1, colOFF), wsE.Cells(2, colOFF)).Merge
+    wsE.Cells(1, colOFF).Value = "OFF"
+    wsE.Range(wsE.Cells(1, colHeures), wsE.Cells(2, colHeures)).Merge
+    wsE.Cells(1, colHeures).Value = "NB heures planifiees"
+    wsE.Range(wsE.Cells(1, colTT), wsE.Cells(2, colTT)).Merge
+    wsE.Cells(1, colTT).Value = "TT"
+    wsE.Range(wsE.Cells(1, colComm), wsE.Cells(2, colComm)).Merge
+    wsE.Cells(1, colComm).Value = "Commentaire"
+
+    With wsE.Range(wsE.Cells(1, 1), wsE.Cells(2, colComm))
+        .Font.Bold = True
+        .Interior.Color = RGB(31, 73, 125)
+        .Font.Color = RGB(255, 255, 255)
+        .HorizontalAlignment = xlCenter
+        .VerticalAlignment = xlCenter
+        .WrapText = True
+        .Borders.LineStyle = xlContinuous
+        .Borders.Color = RGB(255, 255, 255)
+    End With
+    wsE.Rows(1).RowHeight = 18
+    wsE.Rows(2).RowHeight = 30
+
+    Dim ligneE As Long: ligneE = 3
+    Dim k As Long, r As Long
+    For k = 1 To nbLignes
+        r = lignes(k)
+        Dim zone As String: zone = CStr(wsP.Cells(r, 11).Value)
+        Dim nomComplet As String: nomComplet = CStr(wsP.Cells(r, 5).Value)
+
+        wsE.Cells(ligneE, 1).Value = zone
+        wsE.Cells(ligneE, 2).Value = nomComplet
+
+        Dim nbOFF As Integer: nbOFF = 0
+        Dim aTT As Boolean: aTT = False
+
+        For j = 1 To 7
+            Dim colPE As Integer: colPE = 10 + (j * 2)
+            Dim colPS As Integer: colPS = colPE + 1
+            Dim valE As String: valE = DecalerHeureTexte(CStr(wsP.Cells(r, colPE).Value), decalageH)
+            Dim valS As String: valS = DecalerHeureTexte(CStr(wsP.Cells(r, colPS).Value), decalageH)
+
+            colDeb = 3 + (j - 1) * 2
+            colFin = colDeb + 1
+            wsE.Cells(ligneE, colDeb).Value = valE
+            wsE.Cells(ligneE, colFin).Value = valS
+
+            Dim celD As Range, celF As Range
+            Set celD = wsE.Cells(ligneE, colDeb)
+            Set celF = wsE.Cells(ligneE, colFin)
+            celD.HorizontalAlignment = xlCenter: celF.HorizontalAlignment = xlCenter
+
+            Select Case True
+                Case valE = "OFF"
+                    nbOFF = nbOFF + 1
+                    celD.Interior.Color = RGB(255, 199, 206): celD.Font.Color = RGB(192, 0, 0): celD.Font.Bold = True
+                    celF.Interior.Color = RGB(255, 199, 206): celF.Font.Color = RGB(192, 0, 0): celF.Font.Bold = True
+                Case valE = "CONGE"
+                    celD.Interior.Color = RGB(255, 230, 153): celD.Font.Color = RGB(156, 87, 0): celD.Font.Bold = True
+                    celF.Interior.Color = RGB(255, 230, 153): celF.Font.Color = RGB(156, 87, 0): celF.Font.Bold = True
+                Case Left(valE, 2) = "TT"
+                    aTT = True
+                    celD.Interior.Color = RGB(220, 190, 255): celD.Font.Color = RGB(70, 0, 130)
+                    celF.Interior.Color = RGB(220, 190, 255): celF.Font.Color = RGB(70, 0, 130)
+                Case Else
+                    If ligneE Mod 2 = 0 Then
+                        celD.Interior.Color = RGB(235, 241, 255)
+                        celF.Interior.Color = RGB(235, 241, 255)
+                    End If
+            End Select
+        Next j
+
+        wsE.Cells(ligneE, colOFF).Value = nbOFF
+        wsE.Cells(ligneE, colOFF).HorizontalAlignment = xlCenter
+
+        Dim totalH As Double: totalH = TotalHeuresConsolidation(nomComplet, sem)
+        Dim hh As Long: hh = Int(totalH)
+        Dim mm As Long: mm = Round((totalH - hh) * 60, 0)
+        wsE.Cells(ligneE, colHeures).Value = Format(hh, "00") & ":" & Format(mm, "00") & ":00"
+        wsE.Cells(ligneE, colHeures).HorizontalAlignment = xlCenter
+
+        wsE.Cells(ligneE, colTT).Value = IIf(aTT, "Y", "N")
+        wsE.Cells(ligneE, colTT).HorizontalAlignment = xlCenter
+
+        wsE.Cells(ligneE, colComm).Value = ""
+
+        If Left(zone, 8) = "TRSPT KO" Then
+            wsE.Cells(ligneE, 1).Interior.Color = RGB(255, 192, 0)
+            wsE.Cells(ligneE, 1).Font.Bold = True
+        End If
+
+        ligneE = ligneE + 1
+    Next k
+
+    wsE.Columns(1).ColumnWidth = 12
+    wsE.Columns(2).ColumnWidth = 24
+    For j = 3 To colComm
+        wsE.Columns(j).ColumnWidth = 12
+    Next j
+    With wsE.Range(wsE.Cells(1, 1), wsE.Cells(ligneE - 1, colComm)).Borders
+        .LineStyle = xlContinuous
+        .Weight = xlThin
+        .Color = RGB(189, 189, 189)
+    End With
+    wsE.Cells(3, 1).Select
+    ActiveWindow.FreezePanes = True
+End Sub
+
+' Decale une valeur d'heure textuelle ("HH:MM", "TT HH:MM", "OFF", "CONGE", ...)
+' de decalageH heures. Les valeurs non-horaires (OFF/CONGE/texte libre type
+' "Missionnee") sont renvoyees telles quelles. Le prefixe "TT " est preserve.
+Function DecalerHeureTexte(valeur As String, decalageH As Integer) As String
+    Dim v As String: v = Trim(valeur)
+    If decalageH = 0 Or v = "" Then DecalerHeureTexte = v: Exit Function
+    If v = "OFF" Or v = "CONGE" Then DecalerHeureTexte = v: Exit Function
+
+    Dim prefixe As String: prefixe = ""
+    Dim reste As String: reste = v
+    If UCase(Left(v, 2)) = "TT" Then
+        prefixe = "TT "
+        reste = Trim(Mid(v, 3))
+    End If
+
+    If InStr(reste, ":") = 0 Then
+        DecalerHeureTexte = v   ' texte non reconnu (ex: "Missionnee") : inchange
+        Exit Function
+    End If
+
+    Dim mins As Long
+    mins = HeureEnMinutes(reste) + (decalageH * 60)
+    mins = ((mins Mod 1440) + 1440) Mod 1440
+    DecalerHeureTexte = prefixe & Format(mins \ 60, "00") & ":" & Format(mins Mod 60, "00")
+End Function
 
 ' Somme les heures nettes (CONSOLIDATION) d'un collaborateur pour une semaine donnee.
 Function TotalHeuresConsolidation(nomComplet As String, sem As Integer) As Double
