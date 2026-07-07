@@ -1133,134 +1133,28 @@ NextR:
 End Sub
 
 ' ============================================================
-' PROJETS FIXES : AFEDIM / ACCESSIBILITE / CM LEASING
+' PROJETS FIXES : AFEDIM / ACCESSIBILITE / CM LEASING / GLF
+' Migrated to the generic SchedulingEngine + ProjectRule
+' (see Employee.cls, ShiftDay.cls, ProjectRule.cls,
+'  ProjectRulesRepository.bas, SchedulingEngine.bas).
+' Output is identical to the old GenererPlanningFixe /
+' GenererPlanningGLF; only the duplication was removed.
 ' ============================================================
-Sub GenererPlanningFixe(nomFeuille As String, collabs() As Collaborateur, nb As Integer)
-    Dim ws As Worksheet
-    Set ws = ThisWorkbook.Sheets(nomFeuille)
-    EcrireEnTeteHorizontale ws, nomFeuille
-
-    Dim ligne As Integer: ligne = 4
-    Dim i As Integer
-    For i = 1 To nb
-        If UCase(Trim(collabs(i).projet)) = UCase(nomFeuille) Then
-            Dim cellules(1 To 7) As String
-            Dim entrees(1 To 7) As String
-            Dim sorties(1 To 7) As String
-            Dim pDs(1 To 7) As String
-            Dim pFs(1 To 7) As String
-            Dim j As Integer
-
-            For j = 1 To 7
-                Select Case j
-                    Case 1, 2, 3, 4
-                        cellules(j) = FormatCelluleJour("08:00", "18:00", "13:00", "14:00")
-                        entrees(j) = "08:00": sorties(j) = "18:00"
-                        pDs(j) = "13:00": pFs(j) = "14:00"
-                    Case 5
-                        cellules(j) = FormatCelluleJour("08:00", "17:00", "13:00", "14:00")
-                        entrees(j) = "08:00": sorties(j) = "17:00"
-                        pDs(j) = "13:00": pFs(j) = "14:00"
-                    Case Else
-                        cellules(j) = "OFF"
-                        entrees(j) = "": sorties(j) = "": pDs(j) = "": pFs(j) = ""
-                End Select
-            Next j
-
-            AppliquerCongesEtTT cellules, entrees, sorties, pDs, pFs, collabs(i)
-            EcrireLigneAvecConsolidation ws, ligne, collabs(i), cellules, entrees, sorties, pDs, pFs
-            ligne = ligne + 1
-        End If
-    Next i
-
-    If ligne > 4 Then
-        ws.Cells(ligne + 1, 1).Value = "Total : 44h | Pause fixe 13:00-14:00 | TT = fond violet"
-        ws.Cells(ligne + 1, 1).Font.Italic = True
-        ws.Cells(ligne + 1, 1).Font.Color = RGB(31, 73, 125)
-    End If
-    AppliquerBorduresH ws, 4, ligne - 1
-End Sub
-
 Sub GenererPlanningAFEDIM(collabs() As Collaborateur, nb As Integer)
-    GenererPlanningFixe "AFEDIM", collabs, nb
+    SchedulingEngine.GenerateProjectPlanning ProjectRulesRepository.LoadProjectRule("AFEDIM"), collabs, nb
 End Sub
 Sub GenererPlanningACCESSIBILITE(collabs() As Collaborateur, nb As Integer)
-    GenererPlanningFixe "ACCESSIBILITE", collabs, nb
+    SchedulingEngine.GenerateProjectPlanning ProjectRulesRepository.LoadProjectRule("ACCESSIBILITE"), collabs, nb
 End Sub
 Sub GenererPlanningCMLEASING(collabs() As Collaborateur, nb As Integer)
-    GenererPlanningFixe "CM Leasing", collabs, nb
+    SchedulingEngine.GenerateProjectPlanning ProjectRulesRepository.LoadProjectRule("CMLEASING"), collabs, nb
 End Sub
 
 ' ============================================================
 ' GLF
 ' ============================================================
 Sub GenererPlanningGLF(collabs() As Collaborateur, nb As Integer)
-    Dim ws As Worksheet
-    Set ws = ThisWorkbook.Sheets("GLF")
-    EcrireEnTeteHorizontale ws, "GLF"
-
-    Dim vaguesPause(1 To 5) As String
-    vaguesPause(1) = "12:00": vaguesPause(2) = "12:30": vaguesPause(3) = "13:00"
-    vaguesPause(4) = "13:30": vaguesPause(5) = "14:00"
-
-    Dim glfIdx() As Integer
-    Dim nbGLF As Integer: nbGLF = 0
-    Dim i As Integer
-    For i = 1 To nb
-        If UCase(Trim(collabs(i).projet)) = "GLF" Then
-            nbGLF = nbGLF + 1
-            ReDim Preserve glfIdx(1 To nbGLF)
-            glfIdx(nbGLF) = i
-        End If
-    Next i
-    If nbGLF = 0 Then Exit Sub
-
-    Dim ligne As Integer: ligne = 4
-    Dim k As Integer
-    For k = 1 To nbGLF
-        Dim idx As Integer: idx = glfIdx(k)
-        Dim groupeBase As Integer: groupeBase = (k - 1) Mod 5
-        Dim vagueIdx As Integer
-        vagueIdx = ((groupeBase + collabs(idx).IndexRotation) Mod 5) + 1
-        Dim pauseH As String: pauseH = vaguesPause(vagueIdx)
-        Dim pauseF As String: pauseF = AjouterMinutes(pauseH, 60)
-
-        Dim cellules(1 To 7) As String
-        Dim entrees(1 To 7) As String
-        Dim sorties(1 To 7) As String
-        Dim pDs(1 To 7) As String
-        Dim pFs(1 To 7) As String
-        Dim j As Integer
-
-        For j = 1 To 7
-            Select Case j
-                Case 1, 2, 3, 4
-                    cellules(j) = FormatCelluleJour("08:00", "18:00", pauseH, pauseF)
-                    entrees(j) = "08:00": sorties(j) = "18:00"
-                    pDs(j) = pauseH: pFs(j) = pauseF
-                Case 5
-                    cellules(j) = FormatCelluleJour("08:00", "17:00", pauseH, pauseF)
-                    entrees(j) = "08:00": sorties(j) = "17:00"
-                    pDs(j) = pauseH: pFs(j) = pauseF
-                Case Else
-                    cellules(j) = "OFF"
-                    entrees(j) = "": sorties(j) = "": pDs(j) = "": pFs(j) = ""
-            End Select
-        Next j
-
-        AppliquerCongesEtTT cellules, entrees, sorties, pDs, pFs, collabs(idx)
-        EcrireLigneAvecConsolidation ws, ligne, collabs(idx), cellules, entrees, sorties, pDs, pFs
-        ligne = ligne + 1
-    Next k
-
-    ligne = ligne + 1
-    ws.Cells(ligne, 1).Value = "LÉGENDE VAGUES GLF (groupes ~5, rotation hebdo)"
-    ws.Cells(ligne, 1).Font.Bold = True: ws.Cells(ligne, 1).Font.Color = RGB(31, 73, 125)
-    Dim v As Integer
-    For v = 1 To 5
-        ws.Cells(ligne + v, 1).Value = "Vague " & v & " : " & vaguesPause(v) & "-" & AjouterMinutes(vaguesPause(v), 60)
-    Next v
-    AppliquerBorduresH ws, 4, ligne - 2
+    SchedulingEngine.GenerateProjectPlanning ProjectRulesRepository.LoadProjectRule("GLF"), collabs, nb
 End Sub
 
 ' ============================================================
