@@ -1,33 +1,34 @@
 Attribute VB_Name = "ModulePlanningAccessibilite"
+
 Option Explicit
 
 '=====================================================================================
-' GENERATEUR DE PLANNING - Projet "Accessibilit√©"
+' GENERATEUR DE PLANNING - Projet "AccessibilitÈ"
 '=====================================================================================
 ' HYPOTHESES retenues (a adapter si besoin dans le code ci-dessous) :
 '
-' 1. La colonne "Activit√©" de la BDD sert a la fois de nom de projet ET de detecteur
-'    de role : les collaborateurs ont Activit√© = nom du projet (ex: "Accessibilit√©"),
-'    le(s) manager(s) ont Activit√© = "Manager".
-'    -> Si dans votre BDD le manager est identifie autrement, modifiez la fonction
-'       EstManager() plus bas.
+' 1. Tout le monde (collaborateurs ET manager) a la mÍme valeur dans "ActivitÈ"
+'    (ex: "AccessibilitÈ") -> cette colonne sert uniquement de filtre projet.
+'    Le rÙle est dÈterminÈ par la colonne "MANAGER" de la BDD, qui vaut "OUI"
+'    pour le(s) manager(s) et "NON" pour les collaborateurs.
+'    -> Si votre BDD utilise un autre libellÈ que "OUI", adaptez EstManager().
 '
-' 2. Cong√© actif pour un jour donne si colonne "Cong√©" est renseignee et differente
-'    de "NON", ET que le jour est compris entre "Cong√© D" et "Cong√© F".
+' 2. CongÈ actif pour un jour donne si colonne "CongÈ" est renseignee et differente
+'    de "NON", ET que le jour est compris entre "CongÈ D" et "CongÈ F".
 '
 ' 3. Maladie active si colonne "Maladie" renseignee et differente de "NON", ET que
 '    le jour est compris entre "Date D'Arret" et "DATE DE REPRISE".
 '
-' 4. T√©l√©travail (TT) : si colonne "TT" renseignee et differente de "NON", ET jour
+' 4. TÈlÈtravail (TT) : si colonne "TT" renseignee et differente de "NON", ET jour
 '    compris entre "TT D" et "TT F" -> le collaborateur reste aux memes horaires,
-'    on ajoute juste la mention "T√©l√©travail" en commentaire.
+'    on ajoute juste la mention "TÈlÈtravail" en commentaire.
 '    Le flag "TT" (O/N) affiche dans le planning est une simple reprise de la
 '    colonne "TT" de la BDD.
 '
 ' 5. Contrat / statut :
-'      - Si "Date d'embauche" > jour  -> OFF, commentaire "Pas encore embauch√©"
-'      - Si "Date de sortie" renseignee et <= jour -> OFF, "Contrat termin√©"
-'      - Si "Type de contrat" = "Termin√©" ou "Sorti" -> OFF, "Contrat termin√©"
+'      - Si "Date d'embauche" > jour  -> OFF, commentaire "Pas encore embauchÈ"
+'      - Si "Date de sortie" renseignee et <= jour -> OFF, "Contrat terminÈ"
+'      - Si "Type de contrat" = "TerminÈ" ou "Sorti" -> OFF, "Contrat terminÈ"
 '    (adaptez les libelles dans la fonction GetDayInfo si vos valeurs different)
 '
 ' 6. Horaire par defaut :
@@ -35,11 +36,11 @@ Option Explicit
 '      - Manager        : Lun-Ven 8h-17h, Sam/Dim OFF
 '      - Pause dejeuner fixe 13h-14h (1h), deduite du total d'heures planifiees
 '
-' Priorite des regles (du + fort au + faible) : Contrat > Maladie > Cong√© > D√©faut,
-' puis annotation T√©l√©travail si applicable et que le jour est travaille.
+' Priorite des regles (du + fort au + faible) : Contrat > Maladie > CongÈ > DÈfaut,
+' puis annotation TÈlÈtravail si applicable et que le jour est travaille.
 '
 ' La macro :
-'   a) Met a jour les colonnes horaires (LUN. Entr√©e ... DIM. Sortie) de la feuille
+'   a) Met a jour les colonnes horaires (LUN. EntrÈe ... DIM. Sortie) de la feuille
 '      "BDD" pour chaque collaborateur/manager du projet et de la semaine choisis.
 '   b) Construit / reconstruit la feuille de planning visuel, nommee comme le projet.
 '=====================================================================================
@@ -65,12 +66,12 @@ Sub GenererPlanningAccessibilite()
     End If
     Set wsBDD = ThisWorkbook.Sheets(NOM_FEUILLE_BDD)
 
-    projectName = InputBox("Nom du projet / de l'activit√© √† g√©n√©rer (ex: Accessibilit√©) :", _
-                            "G√©n√©ration du planning", "Accessibilit√©")
+    projectName = InputBox("Nom du projet / de l'activitÈ ‡ gÈnÈrer (ex: AccessibilitÈ) :", _
+                            "GÈnÈration du planning", "AccessibilitÈ")
     If Trim(projectName) = "" Then Exit Sub
 
-    weekStartStr = InputBox("Date du LUNDI de la semaine √† g√©n√©rer (jj/mm/aaaa) :", _
-                             "G√©n√©ration du planning", _
+    weekStartStr = InputBox("Date du LUNDI de la semaine ‡ gÈnÈrer (jj/mm/aaaa) :", _
+                             "GÈnÈration du planning", _
                              Format(Date - Weekday(Date, vbMonday) + 1, "dd/mm/yyyy"))
     If Trim(weekStartStr) = "" Then Exit Sub
     If Not IsDate(weekStartStr) Then
@@ -84,14 +85,15 @@ Sub GenererPlanningAccessibilite()
 
     lastRow = wsBDD.Cells(wsBDD.Rows.Count, GetCol(headers, "MATRICULE")).End(xlUp).Row
     If lastRow < 2 Then
-        MsgBox "Aucune donn√©e trouv√©e dans la BDD.", vbExclamation
+        MsgBox "Aucune donnÈe trouvÈe dans la BDD.", vbExclamation
         Exit Sub
     End If
 
     Set wsPlan = PreparePlanningSheet(projectName)
 
-    Dim colActivite As Long
+    Dim colActivite As Long, colManager As Long
     colActivite = GetCol(headers, "ACTIVITE")
+    colManager = GetCol(headers, "MANAGER")
 
     Dim collabRows() As Long, managerRows() As Long
     Dim nCollab As Long, nManager As Long
@@ -100,19 +102,22 @@ Sub GenererPlanningAccessibilite()
     ReDim managerRows(1 To lastRow)
 
     For r = 2 To lastRow
-        Dim actVal As String
+        Dim actVal As String, managerFlag As String
         actVal = Trim(wsBDD.Cells(r, colActivite).Value)
-        If EstManager(actVal) Then
-            nManager = nManager + 1
-            managerRows(nManager) = r
-        ElseIf StrComp(actVal, projectName, vbTextCompare) = 0 Then
-            nCollab = nCollab + 1
-            collabRows(nCollab) = r
+        managerFlag = Trim(wsBDD.Cells(r, colManager).Value)
+        If StrComp(actVal, projectName, vbTextCompare) = 0 Then
+            If EstManager(managerFlag) Then
+                nManager = nManager + 1
+                managerRows(nManager) = r
+            Else
+                nCollab = nCollab + 1
+                collabRows(nCollab) = r
+            End If
         End If
     Next r
 
     If nCollab = 0 And nManager = 0 Then
-        MsgBox "Aucune ligne trouv√©e pour l'activit√© '" & projectName & _
+        MsgBox "Aucune ligne trouvÈe pour l'activitÈ '" & projectName & _
                "' (ou 'Manager') dans la BDD.", vbExclamation
         Exit Sub
     End If
@@ -138,8 +143,8 @@ Sub GenererPlanningAccessibilite()
     Next i
 
     wsPlan.Columns.AutoFit
-    MsgBox "Planning g√©n√©r√© avec succ√®s dans la feuille '" & wsPlan.Name & _
-           "'." & vbCrLf & "La BDD a √©t√© mise √† jour pour la semaine du " & _
+    MsgBox "Planning gÈnÈrÈ avec succËs dans la feuille '" & wsPlan.Name & _
+           "'." & vbCrLf & "La BDD a ÈtÈ mise ‡ jour pour la semaine du " & _
            Format(weekStart, "dd/mm/yyyy") & ".", vbInformation
     Exit Sub
 
@@ -148,15 +153,16 @@ ErrHandler:
 End Sub
 
 '--------------------------------------------------------------------
-' Detection du role Manager - ADAPTER ICI si votre crit√®re est different
+' Detection du role Manager - ADAPTER ICI si votre critËre est different
+' (se base sur la colonne "MANAGER" de la BDD : "OUI" = manager)
 '--------------------------------------------------------------------
-Function EstManager(ByVal activiteValue As String) As Boolean
-    EstManager = (StrComp(Trim(activiteValue), "Manager", vbTextCompare) = 0)
+Function EstManager(ByVal managerFlagValue As String) As Boolean
+    EstManager = (StrComp(Trim(managerFlagValue), "OUI", vbTextCompare) = 0)
 End Function
 
 '--------------------------------------------------------------------
 ' Traite une ligne BDD (collaborateur ou manager) : calcule les horaires
-' de la semaine, met √† jour la BDD, √©crit la ligne dans le planning.
+' de la semaine, met ‡ jour la BDD, Ècrit la ligne dans le planning.
 ' Retourne la prochaine ligne libre dans la feuille planning.
 '--------------------------------------------------------------------
 Function ProcessRow(wsBDD As Worksheet, wsPlan As Worksheet, headers As Object, _
@@ -199,7 +205,8 @@ Function ProcessRow(wsBDD As Worksheet, wsPlan As Worksheet, headers As Object, 
         Dim colEntreePlan As Long, colSortiePlan As Long
         colEntreePlan = 3 + (dayIndex - 1) * 2
         colSortiePlan = colEntreePlan + 1
-
+        
+       
         If isOff Then
             wsBDD.Cells(rowBDD, colEntreeBDD).Value = "OFF"
             wsBDD.Cells(rowBDD, colSortieBDD).Value = "OFF"
@@ -210,9 +217,9 @@ Function ProcessRow(wsBDD As Worksheet, wsPlan As Worksheet, headers As Object, 
             offCount = offCount + 1
         Else
             wsBDD.Cells(rowBDD, colEntreeBDD).Value = TimeSerial(entreeH, 0, 0)
-            wsBDD.Cells(rowBDD, colEntreeBDD).NumberFormat = "h:mm"
+            wsBDD.Cells(rowBDD, colEntreeBDD).NumberFormat = "hh""H"""
             wsBDD.Cells(rowBDD, colSortieBDD).Value = TimeSerial(sortieH, 0, 0)
-            wsBDD.Cells(rowBDD, colSortieBDD).NumberFormat = "h:mm"
+            wsBDD.Cells(rowBDD, colSortieBDD).NumberFormat = "hh""H"""
 
             wsPlan.Cells(outRow, colEntreePlan).Value = TimeSerial(entreeH, 0, 0)
             wsPlan.Cells(outRow, colEntreePlan).NumberFormat = "h:mm"
@@ -229,7 +236,7 @@ Function ProcessRow(wsBDD As Worksheet, wsPlan As Worksheet, headers As Object, 
 
     ' OFF
     wsPlan.Cells(outRow, 17).Value = offCount
-    ' NB heures planifi√©es (format cumul√© sur plus de 24h)
+    ' NB heures planifiÈes (format cumulÈ sur plus de 24h)
     wsPlan.Cells(outRow, 18).Value = totalHeures / 24
     wsPlan.Cells(outRow, 18).NumberFormat = "[h]:mm:ss"
     ' TT (reprise simple de la colonne TT de la BDD)
@@ -269,17 +276,17 @@ Function GetDayInfo(wsBDD As Worksheet, headers As Object, rowBDD As Long, _
 
     If IsDate(dEmbauche) Then
         If dayDate < CDate(dEmbauche) Then
-            isOff = True: comment = "Pas encore embauch√©"
+            isOff = True: comment = "Pas encore embauchÈ"
         End If
     End If
     If Not isOff And IsDate(dSortie) Then
         If dayDate >= CDate(dSortie) Then
-            isOff = True: comment = "Contrat termin√©"
+            isOff = True: comment = "Contrat terminÈ"
         End If
     End If
-    If Not isOff And (StrComp(typeContrat, "Termin√©", vbTextCompare) = 0 _
+    If Not isOff And (StrComp(typeContrat, "TerminÈ", vbTextCompare) = 0 _
                        Or StrComp(typeContrat, "Sorti", vbTextCompare) = 0) Then
-        isOff = True: comment = "Contrat termin√©"
+        isOff = True: comment = "Contrat terminÈ"
     End If
 
     ' 2) Maladie ----------------------------------------------------------
@@ -298,7 +305,7 @@ Function GetDayInfo(wsBDD As Worksheet, headers As Object, rowBDD As Long, _
         End If
     End If
 
-    ' 3) Cong√© --------------------------------------------------------------
+    ' 3) CongÈ --------------------------------------------------------------
     If Not isOff Then
         Dim congeVal As String, cD As Variant, cF As Variant, typeConge As String
         congeVal = Trim(wsBDD.Cells(rowBDD, GetCol(headers, "CONGE")).Value)
@@ -311,7 +318,7 @@ Function GetDayInfo(wsBDD As Worksheet, headers As Object, rowBDD As Long, _
             okEndC = (Not IsDate(cF)) Or (dayDate <= CDate(cF))
             If okStartC And okEndC Then
                 isOff = True
-                comment = IIf(typeConge <> "", typeConge, "Cong√©")
+                comment = IIf(typeConge <> "", typeConge, "CongÈ")
             End If
         End If
     End If
@@ -337,7 +344,7 @@ Function GetDayInfo(wsBDD As Worksheet, headers As Object, rowBDD As Long, _
         If comment = "" Then comment = "RAS" ' week-end normal, sans cause particuliere
     End If
 
-    ' 5) T√©l√©travail : annotation seule, horaire inchang√© ---------------------
+    ' 5) TÈlÈtravail : annotation seule, horaire inchangÈ ---------------------
     If Not isOff Then
         Dim ttVal As String, ttD As Variant, ttF As Variant
         ttVal = Trim(wsBDD.Cells(rowBDD, GetCol(headers, "TT")).Value)
@@ -349,9 +356,9 @@ Function GetDayInfo(wsBDD As Worksheet, headers As Object, rowBDD As Long, _
             okEndT = (Not IsDate(ttF)) Or (dayDate <= CDate(ttF))
             If okStartT And okEndT Then
                 If StrComp(comment, "RAS", vbTextCompare) = 0 Then
-                    comment = "T√©l√©travail"
+                    comment = "TÈlÈtravail"
                 Else
-                    comment = comment & " / T√©l√©travail"
+                    comment = comment & " / TÈlÈtravail"
                 End If
             End If
         End If
@@ -361,7 +368,7 @@ Function GetDayInfo(wsBDD As Worksheet, headers As Object, rowBDD As Long, _
 End Function
 
 '--------------------------------------------------------------------
-' Cl√© de colonne BDD normalis√©e pour un jour/sens donn√© (ex: "LUNENTREE")
+' ClÈ de colonne BDD normalisÈe pour un jour/sens donnÈ (ex: "LUNENTREE")
 '--------------------------------------------------------------------
 Function DayColKey(dayIndex As Integer, isEntree As Boolean) As String
     Dim prefixes As Variant
@@ -376,7 +383,7 @@ Function DayLabel(dayIndex As Integer) As String
 End Function
 
 '--------------------------------------------------------------------
-' Pr√©pare (recr√©e) la feuille de planning nomm√©e d'apr√®s le projet
+' PrÈpare (recrÈe) la feuille de planning nommÈe d'aprËs le projet
 '--------------------------------------------------------------------
 Function PreparePlanningSheet(ByVal projectName As String) As Worksheet
     Dim sheetName As String
@@ -415,8 +422,8 @@ Function SheetExists(ByVal sheetName As String) As Boolean
 End Function
 
 '--------------------------------------------------------------------
-' Ecrit les deux lignes d'en-t√™te (semaine + libell√©s colonnes) et
-' retourne la premi√®re ligne de donn√©es disponible.
+' Ecrit les deux lignes d'en-tÍte (semaine + libellÈs colonnes) et
+' retourne la premiËre ligne de donnÈes disponible.
 '--------------------------------------------------------------------
 Function WriteSectionHeader(wsPlan As Worksheet, startRow As Long, weekStart As Date, _
                              roleLabel As String) As Long
@@ -458,14 +465,14 @@ Function WriteSectionHeader(wsPlan As Worksheet, startRow As Long, weekStart As 
             .Font.Color = headerFont
             .Font.Bold = True
         End With
-        wsPlan.Cells(r2, c1).Value = "D√©but de shift"
+        wsPlan.Cells(r2, c1).Value = "DÈbut de shift"
         wsPlan.Cells(r2, c2).Value = "Fin de shift"
     Next dayIndex
 
     wsPlan.Cells(r2, 1).Value = "Zones"
     wsPlan.Cells(r2, 2).Value = roleLabel
     wsPlan.Cells(r2, 17).Value = "OFF"
-    wsPlan.Cells(r2, 18).Value = "NB heures planifi√©es"
+    wsPlan.Cells(r2, 18).Value = "NB heures planifiÈes"
     wsPlan.Cells(r2, 19).Value = "TT"
     wsPlan.Cells(r2, 20).Value = "Commentaires"
 
@@ -486,7 +493,7 @@ Sub WriteShiftReferenceTable(wsPlan As Worksheet, atRow As Long)
         .Range(.Cells(atRow, 4), .Cells(atRow, 5)).Merge
         .Cells(atRow, 4).Value = "Shift"
         .Range(.Cells(atRow, 6), .Cells(atRow, 7)).Merge
-        .Cells(atRow, 6).Value = "Pause d√©jeuner"
+        .Cells(atRow, 6).Value = "Pause dÈjeuner"
         .Range(.Cells(atRow, 4), .Cells(atRow, 7)).Interior.Color = RGB(31, 73, 125)
         .Range(.Cells(atRow, 4), .Cells(atRow, 7)).Font.Color = RGB(255, 255, 255)
         .Range(.Cells(atRow, 4), .Cells(atRow, 7)).Font.Bold = True
@@ -502,7 +509,7 @@ Sub WriteShiftReferenceTable(wsPlan As Worksheet, atRow As Long)
 End Sub
 
 '--------------------------------------------------------------------
-' Construit un dictionnaire {en-t√™te normalis√© -> num√©ro de colonne}
+' Construit un dictionnaire {en-tÍte normalisÈ -> numÈro de colonne}
 ' en lisant la ligne 1 de la feuille BDD.
 '--------------------------------------------------------------------
 Function GetHeaderMap(wsBDD As Worksheet) As Object
@@ -527,25 +534,26 @@ Function GetCol(headers As Object, ByVal key As String) As Long
     If headers.Exists(key) Then
         GetCol = headers(key)
     Else
-        Err.Raise vbObjectError + 1, , "Colonne introuvable dans la BDD pour la cl√© : " & key
+        Err.Raise vbObjectError + 1, , "Colonne introuvable dans la BDD pour la clÈ : " & key
     End If
 End Function
 
 '--------------------------------------------------------------------
-' Normalise un en-t√™te : majuscules, sans accents, sans espaces/points/apostrophes
+' Normalise un en-tÍte : majuscules, sans accents, sans espaces/points/apostrophes
 '--------------------------------------------------------------------
 Function NormalizeHeader(ByVal s As String) As String
     Dim r As String
     r = UCase(Trim(s))
-    r = Replace(r, "√â", "E"): r = Replace(r, "√à", "E"): r = Replace(r, "√ä", "E"): r = Replace(r, "√ã", "E")
-    r = Replace(r, "√Ä", "A"): r = Replace(r, "√Ç", "A")
-    r = Replace(r, "√î", "O")
-    r = Replace(r, "√é", "I"): r = Replace(r, "√è", "I")
-    r = Replace(r, "√ô", "U"): r = Replace(r, "√õ", "U")
-    r = Replace(r, "√á", "C")
+    r = Replace(r, "…", "E"): r = Replace(r, "»", "E"): r = Replace(r, " ", "E"): r = Replace(r, "À", "E")
+    r = Replace(r, "¿", "A"): r = Replace(r, "¬", "A")
+    r = Replace(r, "‘", "O")
+    r = Replace(r, "Œ", "I"): r = Replace(r, "œ", "I")
+    r = Replace(r, "Ÿ", "U"): r = Replace(r, "€", "U")
+    r = Replace(r, "«", "C")
     r = Replace(r, ".", "")
     r = Replace(r, "'", "")
     r = Replace(r, "-", "")
     r = Replace(r, " ", "")
     NormalizeHeader = r
 End Function
+
