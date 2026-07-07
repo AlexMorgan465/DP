@@ -545,6 +545,21 @@ End Sub
 ' selectionnes dans lstCollabs (multi-selection).
 ' ------------------------------------------------------------
 Private Sub cmdPlanifier_Click()
+    ' --- DEBUG TEMPORAIRE : capture l'etat brut des boutons juste avant
+    ' d'appliquer quoi que ce soit, pour diagnostiquer le bug "TT applique
+    ' sans avoir coche TT". A retirer une fois le probleme confirme/corrige.
+    Dim dbg As String
+    dbg = "[DEBUG clic Planifier] OFF=" & optOFF.Value & "  TT=" & optTT.Value & _
+          "  Vague=" & optChoixVague.Value & "  Reduit=" & optChoixReduit.Value & vbCrLf
+    Dim dbgJours As String: dbgJours = "[DEBUG jours coches] "
+    Dim di As Integer
+    Dim nomsJoursDbg As Variant
+    nomsJoursDbg = Array("Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche", "ToutesLesSemaines")
+    For di = 0 To 7
+        If lstJours.Selected(di) Then dbgJours = dbgJours & nomsJoursDbg(di) & " "
+    Next di
+    dbg = dbg & dbgJours & vbCrLf & vbCrLf
+
     Dim mode As String, entree As String, sortie As String
     If Not LireModeEtHoraire(mode, entree, sortie) Then Exit Sub
 
@@ -581,6 +596,7 @@ Private Sub cmdPlanifier_Click()
     End If
 
     MettreAJourTerminal
+    lblTerminal.Caption = dbg & lblTerminal.Caption
 
     MsgBox nbSelect & " collaborateur(s) planifie(s) pour " & LibelleJoursCibles(joursCibles, nbJours) & ".", vbInformation
 End Sub
