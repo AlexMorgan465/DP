@@ -1,49 +1,5 @@
-Option Explicit
-
-Sub GenererPlanning()
-
-    Dim ws As Worksheet
-    Dim i As Long
-    Dim derniereLigne As Long
-
-    Set ws = Worksheets("ACCESSIBILITE")
-
-    'Première ligne des collaborateurs
-    derniereLigne = ws.Cells(ws.Rows.Count, "A").End(xlUp).Row
-
-    For i = 6 To derniereLigne
-
-        'Lundi
-        ws.Cells(i, 4) = "08:00 - 18:00" & vbCrLf & _
-                         "Pause : 13:00-14:00"
-
-        'Mardi
-        ws.Cells(i, 5) = "08:00 - 18:00" & vbCrLf & _
-                         "Pause : 13:00-14:00"
-
-        'Mercredi
-        ws.Cells(i, 6) = "08:00 - 18:00" & vbCrLf & _
-                         "Pause : 13:00-14:00"
-
-        'Jeudi
-        ws.Cells(i, 7) = "08:00 - 18:00" & vbCrLf & _
-                         "Pause : 13:00-14:00"
-
-        'Vendredi
-        ws.Cells(i, 8) = "08:00 - 17:00" & vbCrLf & _
-                         "Pause : 13:00-14:00"
-
-        'Samedi
-        ws.Cells(i, 9) = "OFF"
-
-        'Dimanche
-        ws.Cells(i, 10) = "OFF"
-
-        'Calcul des heures
-        ws.Cells(i, 11) = 44
-
-    Next i
-
-    MsgBox "Planning généré avec succès !"
-
-End Sub
+Semaine	Matricule	NOM	PRENOM	NOM COMPLET	Date d'embauche	Activité	N de téléphone	Ville	POINT DE REPERE	ZONES	LUN. Entrée 	LUN. Sortie 	MAR. Entrée	MAR. Sortie	MER. Entrée	MER. Sortie	JEU. Entrée	JEU. Sortie	VEN. Entrée	VEN. Sortie	SAM. Entrée	SAM. Sortie	DIM. Entrée	DIM. Sortie	TRANSPORT	Congé	Congé D	Congé F	Type de Congé	TT	TT D	TT F	RENFORT PRESS	RENFORT ITALY	RENFORT TF	Type de contrat	Date d'embauche2	Date de sortie	Maladie	Date D'Arret	DATE DE REPRISE	MANAGER
+S28	01278	LISSAOUI	HIBA	LISSAOUI HIBA	26/08/2025	Accessibilité 	06 25 79 47 45	TEMARA	LYCEE SCIENTIFIQUES	ZONE 6	08H	18H	08H	18H	08H	18H	08H	18H	08H	17H	OFF	OFF	OFF	OFF	OUI	OUI			NON	NON			NON	NON	NON	CDI			NON			NON
+S28	01265	RMAIDI	IMAD	RMAIDI IMAD	26/08/2025	Accessibilité 	06 44 93 74 73	SALE	MAROC TELECOM SALA AL JADIDA 	ZONE 5	08H	18H	08H	18H	08H	18H	08H	18H	08H	17H	OFF	OFF	OFF	OFF	OUI	OUI			NON	NON			NON	NON	NON	CDI			NON			NON
+S28	01317	HAMDANI	MOHAMED	HAMDANI MOHAMED	03/09/2025	Accessibilité 	06 34 11 13 97	SALE	BAB CHAAFA SALE 	ZONE 4	08H	18H	08H	18H	08H	18H	08H	18H	08H	17H	OFF	OFF	OFF	OFF	OUI	OUI			NON	NON			NON	NON	NON	CDI			NON			NON
+S28	00355	OUBRAHIM	MOHAMMED	OUBRAHIM MOHAMMED	01/02/2021	Accessibilité 	06 95 49 92 98	KENITRA	Parking Hôtel Relax	ZONE 7	08H	17H	08H	17H	08H	17H	08H	17H	08H	17H	OFF	OFF	OFF	OFF	OUI	OUI			NON	NON			NON	NON	NON	CDI			NON			OUI
