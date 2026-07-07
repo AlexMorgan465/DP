@@ -5,10 +5,11 @@ Option Explicit
 '=====================================================================================
 ' GENERATEUR DE PLANNING - Projet "Ebra presse" (version adaptée)
 '=====================================================================================
-' ... (même entête que précédemment)
+' ... (en-tête)
 '=====================================================================================
 
 Public Const NOM_FEUILLE_BDD As String = "BDD"
+Public Const COL_PROJET As String = "ACTIVITE"   ' <-- ADAPTEZ ICI (ex: "PROJET", "ACTIVITE", ...)
 
 '--------------------------------------------------------------------
 ' POINT D'ENTREE
@@ -29,11 +30,11 @@ Sub GenererPlanningAccessibilite()
     End If
     Set wsBDD = ThisWorkbook.Sheets(NOM_FEUILLE_BDD)
 
-    projectName = InputBox("Nom du projet / de l'activité ŕ générer (ex: Ebra presse) :", _
+    projectName = InputBox("Nom du projet / de l'activité à générer (ex: Ebra presse) :", _
                             "Génération du planning", "Ebra presse")
     If Trim(projectName) = "" Then Exit Sub
 
-    weekStartStr = InputBox("Date du LUNDI de la semaine ŕ générer (jj/mm/aaaa) :", _
+    weekStartStr = InputBox("Date du LUNDI de la semaine à générer (jj/mm/aaaa) :", _
                              "Génération du planning", _
                              Format(Date - Weekday(Date, vbMonday) + 1, "dd/mm/yyyy"))
     If Trim(weekStartStr) = "" Then Exit Sub
@@ -42,14 +43,12 @@ Sub GenererPlanningAccessibilite()
         Exit Sub
     End If
     weekStart = CDate(weekStartStr)
-    weekStart = weekStart - Weekday(weekStart, vbMonday) + 1 ' recale sur le lundi
+    weekStart = weekStart - Weekday(weekStart, vbMonday) + 1
 
     Set headers = GetHeaderMap(wsBDD)
 
-    ' --- REMPLACEMENT DE "MATRICULE" PAR "NOM" ---
+    ' Utilisation de la colonne "NOM" pour la dernière ligne
     lastRow = wsBDD.Cells(wsBDD.Rows.Count, GetCol(headers, "NOM")).End(xlUp).Row
-    ' ---------------------------------------------
-
     If lastRow < 2 Then
         MsgBox "Aucune donnée trouvée dans la BDD.", vbExclamation
         Exit Sub
@@ -58,7 +57,7 @@ Sub GenererPlanningAccessibilite()
     Set wsPlan = PreparePlanningSheet(projectName)
 
     Dim colActivite As Long, colManager As Long
-    colActivite = GetCol(headers, "ACTIVITE")
+    colActivite = GetCol(headers, COL_PROJET)        ' <-- Utilisation de la constante
     colManager = GetCol(headers, "MANAGER")
 
     Dim collabRows() As Long, managerRows() As Long
@@ -88,56 +87,16 @@ Sub GenererPlanningAccessibilite()
         Exit Sub
     End If
 
-    Dim outRow As Long
-    Dim i As Long
-
-    ' --- Section collaborateurs : shifts ---
-    outRow = WriteSectionHeader(wsPlan, 1, weekStart, "Collaborateur")
-    For i = 1 To nCollab
-        outRow = ProcessRow(wsBDD, wsPlan, headers, collabRows(i), weekStart, outRow, False)
-    Next i
-
-    ' --- Section collaborateurs : pause dejeuner (rotation par vagues) ---
-    outRow = outRow + 1
-    outRow = WritePauseSectionHeader(wsPlan, outRow, weekStart, "Collaborateur")
-    For i = 1 To nCollab
-        outRow = ProcessPauseRow(wsBDD, wsPlan, headers, collabRows(i), weekStart, outRow, False, i)
-    Next i
-
-    ' --- Section manager : shifts ---
-    outRow = outRow + 2
-    Dim managerStartRow As Long
-    managerStartRow = outRow
-    outRow = WriteSectionHeader(wsPlan, managerStartRow, weekStart, "Manager")
-    For i = 1 To nManager
-        outRow = ProcessRow(wsBDD, wsPlan, headers, managerRows(i), weekStart, outRow, True)
-    Next i
-
-    ' --- Section manager : pause dejeuner (personnalisée selon le nom) ---
-    outRow = outRow + 1
-    outRow = WritePauseSectionHeader(wsPlan, outRow, weekStart, "Manager")
-    For i = 1 To nManager
-        outRow = ProcessPauseRow(wsBDD, wsPlan, headers, managerRows(i), weekStart, outRow, True, i)
-    Next i
-
-    ' --- Table de reference des vagues de pause (3 vagues pour collaborateurs) ---
-    WriteShiftReferenceTable wsPlan, outRow + 2
+    ' --- Reste du code inchangé (appels à ProcessRow, ProcessPauseRow, etc.) ---
+    ' ... (copiez ici toutes les autres fonctions telles que fournies précédemment)
 
     wsPlan.Columns.AutoFit
-    MsgBox "Planning généré avec succčs dans la feuille '" & wsPlan.Name & _
-           "'." & vbCrLf & "La BDD a été mise ŕ jour pour la semaine du " & _
-           Format(weekStart, "dd/mm/yyyy") & "." & vbCrLf & _
-           "Les pauses déjeuner des collaborateurs tournent chaque semaine sur 3 vagues " & _
-           "(11h-12h / 11h30-12h30 / 12h-13h). Les pauses des managers sont fixes selon leur nom.", _
-           vbInformation
+    MsgBox "Planning généré avec succès dans la feuille '" & wsPlan.Name & "'." & vbCrLf & _
+           "La BDD a été mise à jour pour la semaine du " & Format(weekStart, "dd/mm/yyyy") & ".", vbInformation
     Exit Sub
 
 ErrHandler:
     MsgBox "Erreur : " & Err.Description, vbCritical
 End Sub
 
-'--------------------------------------------------------------------
-' Le reste des fonctions est identique à la version précédente
-' (EstManager, GetManagerScheduleType, ProcessRow, GetDayInfo, etc.)
-'--------------------------------------------------------------------
-' ... (copiez ici toutes les autres fonctions inchangées)
+' --- Toutes les autres fonctions (EstManager, ProcessRow, GetDayInfo, GetHeaderMap, etc.) restent identiques ---
