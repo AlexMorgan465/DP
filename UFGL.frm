@@ -22,9 +22,17 @@ Attribute VB_Exposed = False
 ' dans le module de code du formulaire deja cree dans l'editeur VBA.
 '
 ' *** CONTROLES A AJOUTER / VERIFIER DANS LE DESIGNER ***
-'   - cboJour (ComboBox) : deja ajoute par vous. Rempli en code avec
+'   - lstJours (ListBox) : REMPLACE cboJour. Rempli en code avec
 '     Lundi, Mardi, Mercredi, Jeudi, Vendredi, Samedi, Dimanche,
-'     "Toutes les semaines".
+'     "Toutes les semaines" (8 lignes, index 0 a 7).
+'     Proprietes a regler dans le Designer : MultiSelect = fmMultiSelectMulti
+'     (2 - fmMultiSelectMulti), pour pouvoir cocher plusieurs jours d'un
+'     coup (ex: Lundi + Mercredi + Vendredi) sans passer par "Toutes les
+'     semaines". Si "Toutes les semaines" est coche, les autres jours
+'     coches sont ignores (voir ListeJoursCibles plus bas).
+'   - txtRecherche (TextBox) : NOUVEAU, filtre lstCollabs en direct pendant
+'     la saisie (recherche par sous-chaine dans le nom, insensible a la
+'     casse). Voir txtRecherche_Change / FiltrerListeCollabs plus bas.
 '   - optChoixVague (OptionButton) et optChoixReduit (OptionButton) :
 '     A AJOUTER, places n'importe ou sur le formulaire (par ex. juste
 '     avant les libelles "Vague" et "Shift Reduit"). Dans la fenetre
@@ -40,24 +48,29 @@ Attribute VB_Exposed = False
 '
 ' *** LOGIQUE ***
 '   Pour un clic sur "Planifier", la condition appliquee au(x) jour(s)
-'   choisi(s) dans cboJour est determinee par 2 choix INDEPENDANTS :
+'   coche(s) dans lstJours est determinee par 2 choix INDEPENDANTS :
 '     1) OFF / TT / (aucun = normal)          -> via optOFF / optTT
 '     2) Vague / Shift Reduit (quel horaire)  -> via optChoixVague / optChoixReduit
-'   Exemple : optChoixReduit + optTT coches + cboJour="Dimanche"
+'   Exemple : optChoixReduit + optTT coches + lstJours="Dimanche"
 '             => Dimanche sera "TT" avec les heures du Shift Reduit choisi.
 '   Si optOFF est coche, le choix Vague/Reduit est ignore (jour = OFF).
 '
-'   "Toutes les semaines" dans cboJour applique la MEME condition aux
-'   7 jours (Lundi a Dimanche) en un seul clic sur "Planifier".
+'   lstJours est multi-selection : on peut cocher plusieurs jours a la
+'   fois (ex: Lundi + Mercredi + Vendredi) pour leur appliquer la meme
+'   condition en un seul clic sur "Planifier". Cocher "Toutes les
+'   semaines" applique la condition aux 7 jours (Lundi a Dimanche) et
+'   ignore les autres cases cochees dans lstJours.
 '
 ' *** CORRECTIONS DE CETTE VERSION ***
-'   - Au demarrage, AUCUN jour n'est preselectionne dans cboJour (avant :
-'     "Lundi" etait coche par defaut). L'utilisateur doit choisir un
-'     jour ou "Toutes les semaines" explicitement avant de planifier.
-'   - OFF et TT sont totalement independants du jour choisi : cocher OFF
-'     ou TT n'applique JAMAIS "toute la semaine" tout seul ; c'est
-'     uniquement la selection dans cboJour qui determine le(s) jour(s)
-'     cible(s). Handlers optOFF_Click/optTT_Click ajoutes pour le garantir.
+'   - Au demarrage, AUCUN jour n'est preselectionne dans lstJours (avant :
+'     "Lundi" etait coche par defaut). L'utilisateur doit cocher un ou
+'     plusieurs jours, ou "Toutes les semaines", explicitement avant de
+'     planifier.
+'   - OFF et TT sont totalement independants du/des jour(s) choisi(s) :
+'     cocher OFF ou TT n'applique JAMAIS "toute la semaine" tout seul ;
+'     c'est uniquement la selection dans lstJours qui determine le(s)
+'     jour(s) cible(s). Handlers optOFF_Click/optTT_Click ajoutes pour
+'     le garantir.
 '   - Rappel : pour pouvoir cocher Vague/Reduit EN MEME TEMPS que OFF ou
 '     TT (et meme avec "Toutes les semaines"), optChoixVague et
 '     optChoixReduit doivent avoir GroupName = grpHoraire dans le
@@ -71,7 +84,7 @@ Attribute VB_Exposed = False
 '   code (optOFF_Click / optTT_Click / optChoixVague_Click / optChoixReduit_Click,
 '   plus bas) qui force manuellement :
 '     - optOFF et optTT restent mutuellement exclusifs entre eux (un jour ne
-'       peut pas etre a la fois OFF et TT), mais ne touchent jamais cboJour.
+'       peut pas etre a la fois OFF et TT), mais ne touchent jamais lstJours.
 '     - optChoixVague et optChoixReduit restent mutuellement exclusifs entre
 '       eux (un seul horaire actif a la fois), mais restent independants de
 '       optOFF/optTT.
@@ -106,6 +119,8 @@ Option Explicit
 Private m_semaines() As Date            ' index -> Lundi de la semaine correspondante
 Private m_affectations() As AffectationGL
 Private m_nbAffect As Integer
+Private m_tousCollabsNoms() As String   ' liste complete (non filtree) des noms GOOGLE LEADS
+Private m_nbTousCollabs As Integer
 
 Private Sub UserForm_Initialize()
     Me.Caption = "Google Leads - Saisie du planning"
@@ -124,19 +139,20 @@ Private Sub UserForm_Initialize()
     Next i
     cboSemaine.ListIndex = 0
 
-    ' --- Combo Jour : Lundi..Dimanche + Toutes les semaines ---
-    cboJour.Clear
-    cboJour.AddItem "Lundi"
-    cboJour.AddItem "Mardi"
-    cboJour.AddItem "Mercredi"
-    cboJour.AddItem "Jeudi"
-    cboJour.AddItem "Vendredi"
-    cboJour.AddItem "Samedi"
-    cboJour.AddItem "Dimanche"
-    cboJour.AddItem "Toutes les semaines"
-    cboJour.ListIndex = -1   ' AUCUN jour selectionne par defaut (Lundi n'est plus impose) :
-                              ' l'utilisateur doit choisir explicitement un jour ou
-                              ' "Toutes les semaines" avant de pouvoir cliquer Planifier.
+    ' --- lstJours : Lundi..Dimanche + Toutes les semaines (multi-selection) ---
+    lstJours.Clear
+    lstJours.AddItem "Lundi"
+    lstJours.AddItem "Mardi"
+    lstJours.AddItem "Mercredi"
+    lstJours.AddItem "Jeudi"
+    lstJours.AddItem "Vendredi"
+    lstJours.AddItem "Samedi"
+    lstJours.AddItem "Dimanche"
+    lstJours.AddItem "Toutes les semaines"
+    ' Rappel Designer : lstJours.MultiSelect doit etre regle sur
+    ' 2 - fmMultiSelectMulti pour pouvoir cocher plusieurs jours.
+    ' Aucun jour n'est preselectionne par defaut (Selected() = False pour
+    ' toutes les lignes tant qu'on n'y touche pas).
 
     ' --- Vague (shift), par defaut 7h-17h ---
     optVague1.Value = True
@@ -167,25 +183,71 @@ End Sub
 ' Remplit lstCollabs avec les collaborateurs dont le projet = GOOGLE LEADS.
 ' Colonne 1 = Nom complet, Colonne 2 = resume des jours deja planifies.
 ' Pense a activer, sur lstCollabs : ColumnCount = 2, MultiSelect = fmMultiSelectExtended.
+' La liste complete (non filtree) est gardee dans m_tousCollabsNoms ; lstCollabs
+' n'affiche que le sous-ensemble filtre par txtRecherche (voir FiltrerListeCollabs).
 Private Sub ChargerListeCollabs()
-    lstCollabs.Clear
-    If Not FeuilleExiste("Utilisateurs") Then Exit Sub
+    m_nbTousCollabs = 0
+    If Not FeuilleExiste("Utilisateurs") Then
+        lstCollabs.Clear
+        Exit Sub
+    End If
 
     Dim collaborateurs() As Collaborateur
     Dim nbCollab As Integer
     nbCollab = LireCollaborateurs(collaborateurs)
 
+    ReDim m_tousCollabsNoms(1 To IIf(nbCollab > 0, nbCollab, 1))
     Dim i As Integer
     For i = 1 To nbCollab
         If UCase(Trim(collaborateurs(i).projet)) = "GOOGLE LEADS" Then
-            lstCollabs.AddItem collaborateurs(i).nomComplet
-            lstCollabs.List(lstCollabs.ListCount - 1, 1) = ""
+            m_nbTousCollabs = m_nbTousCollabs + 1
+            m_tousCollabsNoms(m_nbTousCollabs) = collaborateurs(i).nomComplet
         End If
     Next i
 
-    If lstCollabs.ListCount = 0 Then
+    txtRecherche.Text = ""
+    FiltrerListeCollabs
+
+    If m_nbTousCollabs = 0 Then
         MsgBox "Aucun collaborateur avec le projet ""GOOGLE LEADS"" trouve dans Utilisateurs.", vbExclamation
     End If
+End Sub
+
+' ------------------------------------------------------------
+' Reconstruit lstCollabs a partir de m_tousCollabsNoms, en ne gardant que
+' les noms contenant le texte de txtRecherche (recherche par sous-chaine,
+' insensible a la casse). Le resume (colonne 2) de chaque collaborateur
+' deja planifie (present dans m_affectations) est reaffiche apres filtrage.
+' NOTE : changer le texte de recherche reconstruit la liste, donc les
+' cases cochees dans lstCollabs sont reinitialisees a chaque frappe. Ce
+' n'est pas un probleme puisque les affectations deja "Planifie" sont
+' sauvegardees dans m_affectations, independamment des cases cochees.
+' ------------------------------------------------------------
+Private Sub FiltrerListeCollabs()
+    Dim filtre As String
+    filtre = UCase(Trim(txtRecherche.Text))
+
+    lstCollabs.Clear
+    Dim i As Integer, k As Integer
+    For i = 1 To m_nbTousCollabs
+        Dim nom As String: nom = m_tousCollabsNoms(i)
+        If filtre = "" Or InStr(1, UCase(nom), filtre) > 0 Then
+            lstCollabs.AddItem nom
+            Dim ligne As Integer: ligne = lstCollabs.ListCount - 1
+            lstCollabs.List(ligne, 1) = ""
+            For k = 1 To m_nbAffect
+                If UCase(m_affectations(k).nomComplet) = UCase(nom) Then
+                    lstCollabs.List(ligne, 1) = ResumeAffectation(m_affectations(k))
+                    Exit For
+                End If
+            Next k
+        End If
+    Next i
+End Sub
+
+' Filtre lstCollabs a chaque frappe dans la zone de recherche.
+Private Sub txtRecherche_Change()
+    FiltrerListeCollabs
 End Sub
 
 ' Active/desactive la zone de saisie libre "Entree speciale" (Vague)
@@ -212,12 +274,10 @@ Private Sub optRed5_Click(): txtRedSpec.Enabled = False: End Sub
 
 ' ------------------------------------------------------------
 ' optOFF / optTT : ces 2 handlers existent uniquement pour garantir
-' explicitement qu'AUCUN code ne touche cboJour ni optChoixVague /
-' optChoixReduit quand on coche OFF ou TT. Le jour applique reste
-' TOUJOURS exactement celui choisi dans cboJour (un seul jour, ou
-' les 7 jours si "Toutes les semaines" est selectionne) : cocher OFF
-' ou TT ne force JAMAIS "toute la semaine" si un jour precis est
-' selectionne dans cboJour.
+' explicitement qu'AUCUN code ne touche lstJours ni optChoixVague /
+' optChoixReduit quand on coche OFF ou TT. Le(s) jour(s) applique(s)
+' reste(nt) TOUJOURS exactement ceux coches dans lstJours : cocher OFF
+' ou TT ne force JAMAIS "toute la semaine" tout seul.
 ' De meme, OFF/TT (mode) et Vague/Reduit (horaire) sont 2 groupes
 ' INDEPENDANTS : cocher OFF ou TT n'empeche pas de cocher Vague ou
 ' Shift Reduit egalement (utile si vous decochez OFF/TT ensuite).
@@ -231,20 +291,20 @@ Private Sub optRed5_Click(): txtRedSpec.Enabled = False: End Sub
 Private Sub optOFF_Click()
     ' optOFF est reste OptionButton : s'il vient d'etre coche, on decoche
     ' manuellement optTT (ToggleButton) puisque celui-ci n'est plus dans
-    ' le meme groupe d'exclusion automatique. Ne touche ni cboJour, ni
+    ' le meme groupe d'exclusion automatique. Ne touche ni lstJours, ni
     ' optChoixVague/optChoixReduit.
     If optOFF.Value Then optTT.Value = False
 End Sub
 Private Sub optTT_Click()
     ' optTT est un ToggleButton : on force manuellement l'exclusivite avec
-    ' optOFF. Ne touche ni cboJour, ni optChoixVague/optChoixReduit.
+    ' optOFF. Ne touche ni lstJours, ni optChoixVague/optChoixReduit.
     If optTT.Value Then optOFF.Value = False
 End Sub
 
 ' optChoixVague / optChoixReduit sont maintenant des ToggleButton : ils ne
 ' s'excluent plus automatiquement (l'ancien GroupName=grpHoraire n'a plus
 ' d'effet sur un ToggleButton). On force ici manuellement qu'un seul des
-' deux soit actif, sans jamais toucher optOFF/optTT ni cboJour.
+' deux soit actif, sans jamais toucher optOFF/optTT ni lstJours.
 Private Sub optChoixVague_Click()
     If optChoixVague.Value Then optChoixReduit.Value = False
 End Sub
@@ -325,26 +385,40 @@ Private Function LireModeEtHoraire(ByRef mode As String, ByRef entree As String,
 End Function
 
 ' ------------------------------------------------------------
-' Lit cboJour et retourne la liste des jours cibles (1=Lundi..7=Dimanche).
-' "Toutes les semaines" -> les 7 jours.
+' Lit lstJours (multi-selection) et retourne la liste des jours cibles
+' (1=Lundi..7=Dimanche). Si "Toutes les semaines" (index 7) est coche,
+' les 7 jours sont retournes et les autres cases cochees sont ignorees.
 ' ------------------------------------------------------------
 Private Function ListeJoursCibles(ByRef joursCibles() As Integer, ByRef nbJours As Integer) As Boolean
     ListeJoursCibles = False
-    If cboJour.ListIndex < 0 Then
-        MsgBox "Choisissez un jour (ou ""Toutes les semaines"").", vbExclamation
-        Exit Function
-    End If
 
-    If cboJour.ListIndex = 7 Then   ' "Toutes les semaines"
+    If lstJours.Selected(7) Then   ' "Toutes les semaines"
         nbJours = 7
         ReDim joursCibles(1 To 7)
         Dim j As Integer
         For j = 1 To 7: joursCibles(j) = j: Next j
-    Else
-        nbJours = 1
-        ReDim joursCibles(1 To 1)
-        joursCibles(1) = cboJour.ListIndex + 1   ' 0-based -> 1=Lundi..7=Dimanche
+        ListeJoursCibles = True
+        Exit Function
     End If
+
+    Dim i As Integer, n As Integer
+    Dim indices(1 To 7) As Integer
+    n = 0
+    For i = 0 To 6   ' Lundi(0)..Dimanche(6)
+        If lstJours.Selected(i) Then
+            n = n + 1
+            indices(n) = i + 1
+        End If
+    Next i
+
+    If n = 0 Then
+        MsgBox "Cochez au moins un jour (ou ""Toutes les semaines"").", vbExclamation
+        Exit Function
+    End If
+
+    nbJours = n
+    ReDim joursCibles(1 To n)
+    For i = 1 To n: joursCibles(i) = indices(i): Next i
     ListeJoursCibles = True
 End Function
 
@@ -356,7 +430,12 @@ Private Function LibelleJoursCibles(joursCibles() As Integer, nbJours As Integer
         LibelleJoursCibles = "toute la semaine"
         Exit Function
     End If
-    LibelleJoursCibles = nomsJours(joursCibles(1) - 1)
+    Dim s As String, i As Integer
+    For i = 1 To nbJours
+        s = s & nomsJours(joursCibles(i) - 1)
+        If i < nbJours Then s = s & ", "
+    Next i
+    LibelleJoursCibles = s
 End Function
 
 ' Cherche l'affectation existante d'un collaborateur, ou en cree une nouvelle.
@@ -462,7 +541,7 @@ End Sub
 
 ' ------------------------------------------------------------
 ' BOUTON PLANIFIER : applique la condition courante (mode + horaire)
-' au(x) jour(s) choisi(s) dans cboJour, pour tous les collaborateurs
+' au(x) jour(s) choisi(s) dans lstJours, pour tous les collaborateurs
 ' selectionnes dans lstCollabs (multi-selection).
 ' ------------------------------------------------------------
 Private Sub cmdPlanifier_Click()
