@@ -1,58 +1,44 @@
 Attribute VB_Name = "ModulePlanningEbra"
 
-
 Option Explicit
 
 '=====================================================================================
-' GENERATEUR DE PLANNING - Projet "Ebra presse"
+' GENERATEUR DE PLANNING - Projet "Ebra presse" (version adaptÃ©e)
 '=====================================================================================
 ' HYPOTHESES retenues (a adapter si besoin dans le code ci-dessous) :
 '
-' 1. Tout le monde (collaborateurs ET manager) a la même valeur dans "Activité"
+' 1. Tout le monde (collaborateurs ET manager) a la mÄ™me valeur dans "ActivitÃ©"
 '    (ex: "Ebra presse") -> cette colonne sert uniquement de filtre projet.
-'    Le rôle est déterminé par la colonne "MANAGER" de la BDD, qui vaut "OUI"
+'    Le rÃ´le est dÃ©terminÃ© par la colonne "MANAGER" de la BDD, qui vaut "OUI"
 '    pour le(s) manager(s) et "NON" pour les collaborateurs.
-'    -> Si votre BDD utilise un autre libellé que "OUI", adaptez EstManager().
 '
-' 2. Congé actif pour un jour donne si colonne "Congé" est renseignee et differente
-'    de "NON", ET que le jour est compris entre "Congé D" et "Congé F".
+' 2. CongÃ© actif pour un jour donne si colonne "CongÃ©" est renseignee et differente
+'    de "NON", ET que le jour est compris entre "CongÃ© D" et "CongÃ© F".
 '
 ' 3. Maladie active si colonne "Maladie" renseignee et differente de "NON", ET que
 '    le jour est compris entre "Date D'Arret" et "DATE DE REPRISE".
 '
-' 4. Télétravail (TT) : si colonne "TT" renseignee et differente de "NON", ET jour
+' 4. TÃ©lÃ©travail (TT) : si colonne "TT" renseignee et differente de "NON", ET jour
 '    compris entre "TT D" et "TT F" -> le collaborateur reste aux memes horaires,
-'    on ajoute juste la mention "Télétravail" en commentaire.
-'    Le flag "TT" (O/N) affiche dans le planning est une simple reprise de la
-'    colonne "TT" de la BDD.
+'    on ajoute juste la mention "TÃ©lÃ©travail" en commentaire.
 '
 ' 5. Contrat / statut :
-'      - Si "Date d'embauche" > jour  -> OFF, commentaire "Pas encore embauché"
-'      - Si "Date de sortie" renseignee et <= jour -> OFF, "Contrat terminé"
-'      - Si "Type de contrat" = "Terminé" ou "Sorti" -> OFF, "Contrat terminé"
-'    (adaptez les libelles dans la fonction GetDayInfo si vos valeurs different)
+'      - Si "Date d'embauche" > jour  -> OFF, commentaire "Pas encore embauchÃ©"
+'      - Si "Date de sortie" renseignee et <= jour -> OFF, "Contrat terminÃ©"
+'      - Si "Type de contrat" = "TerminÃ©" ou "Sorti" -> OFF, "Contrat terminÃ©"
 '
 ' 6. Horaire par defaut :
-'      - Collaborateurs : Lun-Jeu 8h-18h, Ven 8h-17h, Sam/Dim OFF
-'      - Manager        : Lun-Ven 8h-17h, Sam/Dim OFF
-'      - Pause dejeuner (1h) deduite du total d'heures planifiees
+'      - Collaborateurs : Lun-Ven 7h-16h, Sam 7h-11h, Dim OFF
+'      - Managers Chouifi & El Bahlouly : Lun-Ven 7h-16h, Sam 7h-11h, Dim OFF
+'      - Manager Mounaji : Lun-Ven 8h-17h, Sam/Dim OFF
 '
-' 7. Pause dejeuner - rotation hebdomadaire par vagues (collaborateurs) :
-'      - 4 vagues possibles : 12h-13h / 12h30-13h30 / 13h-14h / 13h30-14h30
-'      - Chaque collaborateur est assigne a une vague selon sa position dans
-'        la liste ET le numero de semaine -> l'assignation tourne (decalage
-'        de 1 vague) d'une semaine sur l'autre (voir GetPauseWaveIndex).
-'      - Avec ~4 vagues et un effectif reparti, on obtient en moyenne 4
-'        personnes par vague.
-'      - Le manager garde une pause fixe 13h-14h, sans rotation.
+' 7. Pause dÃ©jeuner :
+'      - Collaborateurs : 3 vagues rotatives (11h-12h / 11h30-12h30 / 12h-13h)
+'        attribuÃ©es par position + numÃ©ro de semaine (dÃ©calage d'une vague chaque semaine)
+'      - Managers : fixes selon le nom (cf. dÃ©tail ci-dessus), pas de pause le samedi
 '
-' Priorite des regles (du + fort au + faible) : Contrat > Maladie > Congé > Défaut,
-' puis annotation Télétravail si applicable et que le jour est travaille.
-'
-' La macro :
-'   a) Met a jour les colonnes horaires (LUN. Entrée ... DIM. Sortie) de la feuille
-'      "BDD" pour chaque collaborateur/manager du projet et de la semaine choisis.
-'   b) Construit / reconstruit la feuille de planning visuel, nommee comme le projet.
+' Priorite des regles (du + fort au + faible) : Contrat > Maladie > CongÃ© > DÃ©faut,
+' puis annotation TÃ©lÃ©travail si applicable.
 '=====================================================================================
 
 Public Const NOM_FEUILLE_BDD As String = "BDD"
@@ -76,12 +62,12 @@ Sub GenererPlanningAccessibilite()
     End If
     Set wsBDD = ThisWorkbook.Sheets(NOM_FEUILLE_BDD)
 
-    projectName = InputBox("Nom du projet / de l'activité à générer (ex: Ebra presse) :", _
-                            "Génération du planning", "Ebra presse")
+    projectName = InputBox("Nom du projet / de l'activitÃ© Å• gÃ©nÃ©rer (ex: Ebra presse) :", _
+                            "GÃ©nÃ©ration du planning", "Ebra presse")
     If Trim(projectName) = "" Then Exit Sub
 
-    weekStartStr = InputBox("Date du LUNDI de la semaine à générer (jj/mm/aaaa) :", _
-                             "Génération du planning", _
+    weekStartStr = InputBox("Date du LUNDI de la semaine Å• gÃ©nÃ©rer (jj/mm/aaaa) :", _
+                             "GÃ©nÃ©ration du planning", _
                              Format(Date - Weekday(Date, vbMonday) + 1, "dd/mm/yyyy"))
     If Trim(weekStartStr) = "" Then Exit Sub
     If Not IsDate(weekStartStr) Then
@@ -95,7 +81,7 @@ Sub GenererPlanningAccessibilite()
 
     lastRow = wsBDD.Cells(wsBDD.Rows.Count, GetCol(headers, "MATRICULE")).End(xlUp).Row
     If lastRow < 2 Then
-        MsgBox "Aucune donnée trouvée dans la BDD.", vbExclamation
+        MsgBox "Aucune donnÃ©e trouvÃ©e dans la BDD.", vbExclamation
         Exit Sub
     End If
 
@@ -127,7 +113,7 @@ Sub GenererPlanningAccessibilite()
     Next r
 
     If nCollab = 0 And nManager = 0 Then
-        MsgBox "Aucune ligne trouvée pour l'activité '" & projectName & _
+        MsgBox "Aucune ligne trouvÃ©e pour l'activitÃ© '" & projectName & _
                "' (ou 'Manager') dans la BDD.", vbExclamation
         Exit Sub
     End If
@@ -157,22 +143,22 @@ Sub GenererPlanningAccessibilite()
         outRow = ProcessRow(wsBDD, wsPlan, headers, managerRows(i), weekStart, outRow, True)
     Next i
 
-    ' --- Section manager : pause dejeuner (fixe 13h-14h) ---
+    ' --- Section manager : pause dejeuner (personnalisÃ©e selon le nom) ---
     outRow = outRow + 1
     outRow = WritePauseSectionHeader(wsPlan, outRow, weekStart, "Manager")
     For i = 1 To nManager
         outRow = ProcessPauseRow(wsBDD, wsPlan, headers, managerRows(i), weekStart, outRow, True, i)
     Next i
 
-    ' --- Table de reference des vagues de pause ---
+    ' --- Table de reference des vagues de pause (3 vagues pour collaborateurs) ---
     WriteShiftReferenceTable wsPlan, outRow + 2
 
     wsPlan.Columns.AutoFit
-    MsgBox "Planning généré avec succès dans la feuille '" & wsPlan.Name & _
-           "'." & vbCrLf & "La BDD a été mise à jour pour la semaine du " & _
+    MsgBox "Planning gÃ©nÃ©rÃ© avec succÄs dans la feuille '" & wsPlan.Name & _
+           "'." & vbCrLf & "La BDD a Ã©tÃ© mise Å• jour pour la semaine du " & _
            Format(weekStart, "dd/mm/yyyy") & "." & vbCrLf & _
-           "Les pauses déjeuner des collaborateurs tournent chaque semaine sur 4 vagues " & _
-           "(12h-13h / 12h30-13h30 / 13h-14h / 13h30-14h30). La pause du manager reste fixe (13h-14h).", _
+           "Les pauses dÃ©jeuner des collaborateurs tournent chaque semaine sur 3 vagues " & _
+           "(11h-12h / 11h30-12h30 / 12h-13h). Les pauses des managers sont fixes selon leur nom.", _
            vbInformation
     Exit Sub
 
@@ -181,7 +167,7 @@ ErrHandler:
 End Sub
 
 '--------------------------------------------------------------------
-' Detection du role Manager - ADAPTER ICI si votre critère est different
+' Detection du role Manager - ADAPTER ICI si votre critÄre est different
 ' (se base sur la colonne "MANAGER" de la BDD : "OUI" = manager)
 '--------------------------------------------------------------------
 Function EstManager(ByVal managerFlagValue As String) As Boolean
@@ -189,8 +175,22 @@ Function EstManager(ByVal managerFlagValue As String) As Boolean
 End Function
 
 '--------------------------------------------------------------------
+' DÃ©termine le type de planning d'un manager en fonction de son nom
+' Retourne "A" pour Chouifi / El Bahlouly, "B" pour Mounaji, sinon "B" par dÃ©faut
+'--------------------------------------------------------------------
+Function GetManagerScheduleType(ByVal nomComplet As String) As String
+    Dim nom As String
+    nom = LCase(Trim(nomComplet))
+    If InStr(nom, "chouifi") > 0 Or InStr(nom, "el bahlouly") > 0 Or InStr(nom, "elbahlouly") > 0 Then
+        GetManagerScheduleType = "A"
+    Else
+        GetManagerScheduleType = "B"   ' inclut Mounaji et les autres managers par dÃ©faut
+    End If
+End Function
+
+'--------------------------------------------------------------------
 ' Traite une ligne BDD (collaborateur ou manager) : calcule les horaires
-' de la semaine, met à jour la BDD, écrit la ligne dans le planning.
+' de la semaine, met Å• jour la BDD, Ã©crit la ligne dans le planning.
 ' Retourne la prochaine ligne libre dans la feuille planning.
 '--------------------------------------------------------------------
 Function ProcessRow(wsBDD As Worksheet, wsPlan As Worksheet, headers As Object, _
@@ -222,7 +222,7 @@ Function ProcessRow(wsBDD As Worksheet, wsPlan As Worksheet, headers As Object, 
         dayDate = weekStart + (dayIndex - 1)
 
         Dim info As Variant
-        info = GetDayInfo(wsBDD, headers, rowBDD, dayDate, dayIndex, isManager)
+        info = GetDayInfo(wsBDD, headers, rowBDD, dayDate, dayIndex, isManager, nomComplet)
         Dim entreeH As Integer, sortieH As Integer, isOff As Boolean, comment As String
         entreeH = info(0): sortieH = info(1): isOff = info(2): comment = info(3)
 
@@ -253,7 +253,13 @@ Function ProcessRow(wsBDD As Worksheet, wsPlan As Worksheet, headers As Object, 
             wsPlan.Cells(outRow, colSortiePlan).Value = TimeSerial(sortieH, 0, 0)
             wsPlan.Cells(outRow, colSortiePlan).NumberFormat = "h:mm"
 
-            totalHeures = totalHeures + (sortieH - entreeH - 1) ' -1h pause dejeuner
+            ' On dÃ©duit 1h de pause pour les jours de semaine (du lundi au vendredi) si la durÃ©e > 5h
+            ' Pour le samedi (7h-11h) pas de pause
+            If dayIndex <= 5 Then
+                totalHeures = totalHeures + (sortieH - entreeH - 1) ' -1h pause
+            Else
+                totalHeures = totalHeures + (sortieH - entreeH)     ' samedi sans pause
+            End If
         End If
 
         If comment <> "" And StrComp(comment, "RAS", vbTextCompare) <> 0 Then
@@ -263,7 +269,7 @@ Function ProcessRow(wsBDD As Worksheet, wsPlan As Worksheet, headers As Object, 
 
     ' OFF
     wsPlan.Cells(outRow, 17).Value = offCount
-    ' NB heures planifiées (format cumulé sur plus de 24h)
+    ' NB heures planifiÃ©es (format cumulÃ© sur plus de 24h)
     wsPlan.Cells(outRow, 18).Value = totalHeures / 24
     wsPlan.Cells(outRow, 18).NumberFormat = "[h]:mm:ss"
     ' TT (reprise simple de la colonne TT de la BDD)
@@ -289,7 +295,8 @@ End Function
 ' Retourne un tableau : (entreeHeure, sortieHeure, isOff, commentaire)
 '--------------------------------------------------------------------
 Function GetDayInfo(wsBDD As Worksheet, headers As Object, rowBDD As Long, _
-                     dayDate As Date, dayIndex As Integer, isManager As Boolean) As Variant
+                     dayDate As Date, dayIndex As Integer, isManager As Boolean, _
+                     Optional nomComplet As String = "") As Variant
 
     Dim entreeH As Integer, sortieH As Integer, isOff As Boolean, comment As String
     isOff = False
@@ -303,17 +310,17 @@ Function GetDayInfo(wsBDD As Worksheet, headers As Object, rowBDD As Long, _
 
     If IsDate(dEmbauche) Then
         If dayDate < CDate(dEmbauche) Then
-            isOff = True: comment = "Pas encore embauché"
+            isOff = True: comment = "Pas encore embauchÃ©"
         End If
     End If
     If Not isOff And IsDate(dSortie) Then
         If dayDate >= CDate(dSortie) Then
-            isOff = True: comment = "Contrat terminé"
+            isOff = True: comment = "Contrat terminÃ©"
         End If
     End If
-    If Not isOff And (StrComp(typeContrat, "Terminé", vbTextCompare) = 0 _
+    If Not isOff And (StrComp(typeContrat, "TerminÃ©", vbTextCompare) = 0 _
                        Or StrComp(typeContrat, "Sorti", vbTextCompare) = 0) Then
-        isOff = True: comment = "Contrat terminé"
+        isOff = True: comment = "Contrat terminÃ©"
     End If
 
     ' 2) Maladie ----------------------------------------------------------
@@ -332,7 +339,7 @@ Function GetDayInfo(wsBDD As Worksheet, headers As Object, rowBDD As Long, _
         End If
     End If
 
-    ' 3) Congé --------------------------------------------------------------
+    ' 3) CongÃ© --------------------------------------------------------------
     If Not isOff Then
         Dim congeVal As String, cD As Variant, cF As Variant, typeConge As String
         congeVal = Trim(wsBDD.Cells(rowBDD, GetCol(headers, "CONGE")).Value)
@@ -345,33 +352,54 @@ Function GetDayInfo(wsBDD As Worksheet, headers As Object, rowBDD As Long, _
             okEndC = (Not IsDate(cF)) Or (dayDate <= CDate(cF))
             If okStartC And okEndC Then
                 isOff = True
-                comment = IIf(typeConge <> "", typeConge, "Congé")
+                comment = IIf(typeConge <> "", typeConge, "CongÃ©")
             End If
         End If
     End If
 
     ' 4) Horaire par defaut si aucune exception n'a mis la journee en OFF ---
     If Not isOff Then
-        entreeH = 7
         If isManager Then
-            If dayIndex <= 5 Then
-                sortieH = 16
+            ' RÃ©cupÃ©rer le nom si pas fourni
+            If nomComplet = "" Then
+                nomComplet = Trim(wsBDD.Cells(rowBDD, GetCol(headers, "NOMCOMPLET")).Value)
+                If nomComplet = "" Then
+                    nomComplet = Trim(wsBDD.Cells(rowBDD, GetCol(headers, "NOM")).Value & " " & _
+                                       wsBDD.Cells(rowBDD, GetCol(headers, "PRENOM")).Value)
+                End If
+            End If
+            Dim mgrType As String
+            mgrType = GetManagerScheduleType(nomComplet)
+
+            If mgrType = "A" Then
+                ' Chouifi / El Bahlouly : 7h-16h lun-ven, 7h-11h sam, dim OFF
+                Select Case dayIndex
+                    Case 1 To 5: entreeH = 7: sortieH = 16
+                    Case 6: entreeH = 7: sortieH = 11
+                    Case Else: isOff = True
+                End Select
             Else
-                isOff = True
+                ' Mounaji (et autres) : 8h-17h lun-ven, weekend OFF
+                Select Case dayIndex
+                    Case 1 To 5: entreeH = 8: sortieH = 17
+                    Case Else: isOff = True
+                End Select
             End If
         Else
+            ' Collaborateur : 7h-16h lun-ven, 7h-11h sam, dim OFF
             Select Case dayIndex
-                Case 1 To 4: sortieH = 16
-                Case 5: sortieH = 16
-                Case Else: isOff = True ' Samedi / Dimanche
+                Case 1 To 5: entreeH = 7: sortieH = 16
+                Case 6: entreeH = 7: sortieH = 11
+                Case Else: isOff = True
             End Select
         End If
+
         If comment = "" Then comment = "RAS"
     Else
-        If comment = "" Then comment = "RAS" ' week-end normal, sans cause particuliere
+        If comment = "" Then comment = "RAS"
     End If
 
-    ' 5) Télétravail : annotation seule, horaire inchangé ---------------------
+    ' 5) TÃ©lÃ©travail : annotation seule, horaire inchangÃ© ---------------------
     If Not isOff Then
         Dim ttVal As String, ttD As Variant, ttF As Variant
         ttVal = Trim(wsBDD.Cells(rowBDD, GetCol(headers, "TT")).Value)
@@ -383,9 +411,9 @@ Function GetDayInfo(wsBDD As Worksheet, headers As Object, rowBDD As Long, _
             okEndT = (Not IsDate(ttF)) Or (dayDate <= CDate(ttF))
             If okStartT And okEndT Then
                 If StrComp(comment, "RAS", vbTextCompare) = 0 Then
-                    comment = "Télétravail"
+                    comment = "TÃ©lÃ©travail"
                 Else
-                    comment = comment & " / Télétravail"
+                    comment = comment & " / TÃ©lÃ©travail"
                 End If
             End If
         End If
@@ -395,7 +423,7 @@ Function GetDayInfo(wsBDD As Worksheet, headers As Object, rowBDD As Long, _
 End Function
 
 '--------------------------------------------------------------------
-' Clé de colonne BDD normalisée pour un jour/sens donné (ex: "LUNENTREE")
+' ClÃ© de colonne BDD normalisÃ©e pour un jour/sens donnÃ© (ex: "LUNENTREE")
 '--------------------------------------------------------------------
 Function DayColKey(dayIndex As Integer, isEntree As Boolean) As String
     Dim prefixes As Variant
@@ -410,7 +438,7 @@ Function DayLabel(dayIndex As Integer) As String
 End Function
 
 '--------------------------------------------------------------------
-' Prépare (recrée) la feuille de planning nommée d'après le projet
+' PrÃ©pare (recrÃ©e) la feuille de planning nommÃ©e d'aprÄs le projet
 '--------------------------------------------------------------------
 Function PreparePlanningSheet(ByVal projectName As String) As Worksheet
     Dim sheetName As String
@@ -449,8 +477,8 @@ Function SheetExists(ByVal sheetName As String) As Boolean
 End Function
 
 '--------------------------------------------------------------------
-' Ecrit les deux lignes d'en-tête (semaine + libellés colonnes) et
-' retourne la première ligne de données disponible.
+' Ecrit les deux lignes d'en-tÄ™te (semaine + libellÃ©s colonnes) et
+' retourne la premiÄre ligne de donnÃ©es disponible.
 '--------------------------------------------------------------------
 Function WriteSectionHeader(wsPlan As Worksheet, startRow As Long, weekStart As Date, _
                              roleLabel As String) As Long
@@ -492,14 +520,14 @@ Function WriteSectionHeader(wsPlan As Worksheet, startRow As Long, weekStart As 
             .Font.Color = headerFont
             .Font.Bold = True
         End With
-        wsPlan.Cells(r2, c1).Value = "Début de shift"
+        wsPlan.Cells(r2, c1).Value = "DÃ©but de shift"
         wsPlan.Cells(r2, c2).Value = "Fin de shift"
     Next dayIndex
 
     wsPlan.Cells(r2, 1).Value = "Zones"
     wsPlan.Cells(r2, 2).Value = roleLabel
     wsPlan.Cells(r2, 17).Value = "OFF"
-    wsPlan.Cells(r2, 18).Value = "NB heures planifiées"
+    wsPlan.Cells(r2, 18).Value = "NB heures planifiÃ©es"
     wsPlan.Cells(r2, 19).Value = "TT"
     wsPlan.Cells(r2, 20).Value = "Commentaires"
 
@@ -530,7 +558,7 @@ Function WritePauseSectionHeader(wsPlan As Worksheet, startRow As Long, weekStar
 
     With wsPlan.Range(wsPlan.Cells(r1, 1), wsPlan.Cells(r1, 2))
         .Merge
-        .Value = "Planning Pause déjeuner"
+        .Value = "Planning Pause dÃ©jeuner"
         .HorizontalAlignment = xlCenter
         .Interior.Color = headerFill
         .Font.Color = headerFont
@@ -552,7 +580,7 @@ Function WritePauseSectionHeader(wsPlan As Worksheet, startRow As Long, weekStar
             .Font.Color = headerFont
             .Font.Bold = True
         End With
-        wsPlan.Cells(r2, c1).Value = "Début de shift"
+        wsPlan.Cells(r2, c1).Value = "DÃ©but de shift"
         wsPlan.Cells(r2, c2).Value = "Fin de shift"
     Next dayIndex
 
@@ -570,18 +598,10 @@ Function WritePauseSectionHeader(wsPlan As Worksheet, startRow As Long, weekStar
 End Function
 
 '--------------------------------------------------------------------
-' Ecrit la ligne de pause dejeuner d'un collaborateur/manager pour la
-' semaine. Reutilise GetDayInfo pour rester coherent avec le planning
-' de shift (memes jours OFF / Conge / Maladie / contrat).
-'
-' - Manager  : pause fixe 13h00-13h00+1h (13h-14h).
-' - Collabo. : pause determinee par une rotation hebdomadaire sur 4
-'   "vagues" (12h-13h / 12h30-13h30 / 13h-14h / 13h30-14h30), assignee
-'   selon la position du collaborateur dans la liste + le numero de
-'   semaine, ce qui redistribue ~1/4 des effectifs par vague (moyenne
-'   de 4 personnes par vague pour une equipe d'une quinzaine de
-'   personnes) et fait tourner chaque collaborateur d'une vague a
-'   l'autre semaine apres semaine.
+' Ã‰crit la ligne de pause dÃ©jeuner dâ€™un collaborateur ou manager.
+' - Les pauses ne sont affichÃ©es que du lundi au vendredi (samedi/dimanche = OFF)
+' - Collaborateurs : rotation sur 3 vagues (11h-12h / 11h30-12h30 / 12h-13h)
+' - Managers : pauses fixes selon le nom (Chouifi, El Bahlouly, Mounaji)
 '--------------------------------------------------------------------
 Function ProcessPauseRow(wsBDD As Worksheet, wsPlan As Worksheet, headers As Object, _
                           rowBDD As Long, weekStart As Date, outRow As Long, _
@@ -600,17 +620,6 @@ Function ProcessPauseRow(wsBDD As Worksheet, wsPlan As Worksheet, headers As Obj
     wsPlan.Cells(outRow, 1).Font.Bold = True
     wsPlan.Cells(outRow, 2).Font.Bold = True
 
-    Dim pDebH As Integer, pDebM As Integer, pFinH As Integer, pFinM As Integer
-
-    If isManager Then
-        ' Pause manager fixe : 13h00 - 14h00
-        pDebH = 13: pDebM = 0: pFinH = 14: pFinM = 0
-    Else
-        Dim waveIndex As Integer
-        waveIndex = GetPauseWaveIndex(indexInSection, weekStart)
-        GetWaveTimes waveIndex, pDebH, pDebM, pFinH, pFinM
-    End If
-
     Dim offCount As Long
     offCount = 0
 
@@ -619,10 +628,16 @@ Function ProcessPauseRow(wsBDD As Worksheet, wsPlan As Worksheet, headers As Obj
         Dim dayDate As Date
         dayDate = weekStart + (dayIndex - 1)
 
+        ' RÃ©cupÃ©rer les infos du jour (OFF ou non)
         Dim info As Variant
-        info = GetDayInfo(wsBDD, headers, rowBDD, dayDate, dayIndex, isManager)
+        info = GetDayInfo(wsBDD, headers, rowBDD, dayDate, dayIndex, isManager, nomComplet)
         Dim isOff As Boolean, comment As String
         isOff = info(2): comment = info(3)
+
+        ' Pas de pause le samedi et dimanche (quel que soit le rÃ´le)
+        If dayIndex >= 6 Then
+            isOff = True
+        End If
 
         Dim colEntreePlan As Long, colSortiePlan As Long
         colEntreePlan = 3 + (dayIndex - 1) * 2
@@ -635,6 +650,18 @@ Function ProcessPauseRow(wsBDD As Worksheet, wsPlan As Worksheet, headers As Obj
                 .Font.Color = RGB(200, 0, 0)
             offCount = offCount + 1
         Else
+            ' DÃ©terminer les heures de pause
+            Dim pDebH As Integer, pDebM As Integer, pFinH As Integer, pFinM As Integer
+            If isManager Then
+                ' Pause manager selon le nom
+                GetManagerPause nomComplet, dayIndex, pDebH, pDebM, pFinH, pFinM
+            Else
+                ' Pause collaborateur : rotation sur 3 vagues
+                Dim waveIndex As Integer
+                waveIndex = GetPauseWaveIndex(indexInSection, weekStart) ' 0..2
+                GetWaveTimes waveIndex, pDebH, pDebM, pFinH, pFinM
+            End If
+
             wsPlan.Cells(outRow, colEntreePlan).Value = TimeSerial(pDebH, pDebM, 0)
             wsPlan.Cells(outRow, colEntreePlan).NumberFormat = "h:mm"
             wsPlan.Cells(outRow, colSortiePlan).Value = TimeSerial(pFinH, pFinM, 0)
@@ -648,67 +675,97 @@ Function ProcessPauseRow(wsBDD As Worksheet, wsPlan As Worksheet, headers As Obj
 End Function
 
 '--------------------------------------------------------------------
-' Determine l'index de vague (0 a 3) d'un collaborateur pour une
-' semaine donnee. La rotation se fait en decalant l'assignation de
-' 1 vague par semaine (Lundi de reference : 1er janvier 2024, un
-' Lundi, sert de point zero pour compter les semaines ecoulees).
+' DÃ©termine les horaires de pause pour un manager selon son nom et le jour
+' (jour indexÃ© de 1=lundi Ã  5=vendredi ; les autres ne sont pas appelÃ©s)
+'--------------------------------------------------------------------
+Sub GetManagerPause(ByVal nomComplet As String, ByVal dayIndex As Integer, _
+                     ByRef h1 As Integer, ByRef m1 As Integer, _
+                     ByRef h2 As Integer, ByRef m2 As Integer)
+    Dim nom As String
+    nom = LCase(Trim(nomComplet))
+
+    If InStr(nom, "chouifi") > 0 Then
+        ' Chouifi : lun-jeu 12h-13h, ven 13h30-14h30
+        If dayIndex >= 1 And dayIndex <= 4 Then
+            h1 = 12: m1 = 0: h2 = 13: m2 = 0
+        ElseIf dayIndex = 5 Then
+            h1 = 13: m1 = 30: h2 = 14: m2 = 30
+        Else
+            ' Ne devrait pas arriver (dayIndex 6/7 traitÃ©s ailleurs)
+            h1 = 0: m1 = 0: h2 = 0: m2 = 0
+        End If
+    ElseIf InStr(nom, "el bahlouly") > 0 Or InStr(nom, "elbahlouly") > 0 Then
+        ' El Bahlouly : lun-ven 13h-14h
+        h1 = 13: m1 = 0: h2 = 14: m2 = 0
+    Else
+        ' Mounaji (et autres) : lun-jeu 13h-14h, ven 12h30-13h30
+        If dayIndex >= 1 And dayIndex <= 4 Then
+            h1 = 13: m1 = 0: h2 = 14: m2 = 0
+        ElseIf dayIndex = 5 Then
+            h1 = 12: m1 = 30: h2 = 13: m2 = 30
+        Else
+            h1 = 0: m1 = 0: h2 = 0: m2 = 0
+        End If
+    End If
+End Sub
+
+'--------------------------------------------------------------------
+' DÃ©termine l'index de vague (0 Ã  2) pour un collaborateur
+' Rotation hebdomadaire sur 3 vagues (modulo 3)
 '--------------------------------------------------------------------
 Function GetPauseWaveIndex(ByVal indexInSection As Long, ByVal weekStart As Date) As Integer
     Dim refMonday As Date
-    refMonday = DateSerial(2024, 1, 1) ' Lundi de reference (semaine 1)
+    refMonday = DateSerial(2024, 1, 1) ' Lundi de rÃ©fÃ©rence
 
     Dim weekOffset As Long
     weekOffset = (CLng(weekStart) - CLng(refMonday)) \ 7
 
     Dim idx As Long
-    idx = (indexInSection - 1 + weekOffset) Mod 4
-    If idx < 0 Then idx = idx + 4
+    idx = (indexInSection - 1 + weekOffset) Mod 3
+    If idx < 0 Then idx = idx + 3
 
     GetPauseWaveIndex = CInt(idx)
 End Function
 
 '--------------------------------------------------------------------
-' Renvoie les heures/minutes de debut et fin pour une vague de pause
-' (0 = 12h-13h, 1 = 12h30-13h30, 2 = 13h-14h, 3 = 13h30-14h30).
+' Renvoie les heures/minutes de debut et fin pour une vague de pause collaborateur
+' (0 = 11h-12h, 1 = 11h30-12h30, 2 = 12h-13h)
 '--------------------------------------------------------------------
 Sub GetWaveTimes(ByVal waveIndex As Integer, ByRef h1 As Integer, ByRef m1 As Integer, _
                   ByRef h2 As Integer, ByRef m2 As Integer)
-    Select Case waveIndex Mod 4
-        Case 0: h1 = 12: m1 = 0: h2 = 13: m2 = 0
-        Case 1: h1 = 12: m1 = 30: h2 = 13: m2 = 30
-        Case 2: h1 = 13: m1 = 0: h2 = 14: m2 = 0
-        Case 3: h1 = 13: m1 = 30: h2 = 14: m2 = 30
+    Select Case waveIndex Mod 3
+        Case 0: h1 = 11: m1 = 0: h2 = 12: m2 = 0
+        Case 1: h1 = 11: m1 = 30: h2 = 12: m2 = 30
+        Case 2: h1 = 12: m1 = 0: h2 = 13: m2 = 0
     End Select
 End Sub
 
 '--------------------------------------------------------------------
-' Petit tableau de reference des vagues de pause dejeuner
+' Tableau de rÃ©fÃ©rence des vagues de pause (3 vagues pour collaborateurs)
 '--------------------------------------------------------------------
 Sub WriteShiftReferenceTable(wsPlan As Worksheet, atRow As Long)
     With wsPlan
         .Range(.Cells(atRow, 1), .Cells(atRow, 2)).Merge
-        .Cells(atRow, 1).Value = "Vagues de pause déjeuner (rotation hebdomadaire)"
+        .Cells(atRow, 1).Value = "Vagues de pause dÃ©jeuner (rotation hebdomadaire) - Collaborateurs"
         .Range(.Cells(atRow, 1), .Cells(atRow, 2)).Interior.Color = RGB(31, 73, 125)
         .Range(.Cells(atRow, 1), .Cells(atRow, 2)).Font.Color = RGB(255, 255, 255)
         .Range(.Cells(atRow, 1), .Cells(atRow, 2)).Font.Bold = True
         .Range(.Cells(atRow, 1), .Cells(atRow, 2)).HorizontalAlignment = xlCenter
 
         Dim waves As Variant
-        waves = Array("Vague 1 : 12h00 - 13h00", "Vague 2 : 12h30 - 13h30", _
-                       "Vague 3 : 13h00 - 14h00", "Vague 4 : 13h30 - 14h30")
+        waves = Array("Vague 1 : 11h00 - 12h00", "Vague 2 : 11h30 - 12h30", "Vague 3 : 12h00 - 13h00")
         Dim w As Integer
-        For w = 0 To 3
+        For w = 0 To 2
             .Cells(atRow + 1 + w, 1).Value = waves(w)
         Next w
 
-        .Cells(atRow + 6, 1).Value = "Manager : 13h00 - 14h00 (fixe, pas de rotation)"
-
-        .Range(.Cells(atRow + 1, 1), .Cells(atRow + 6, 1)).Font.Bold = True
+        .Cells(atRow + 4, 1).Value = "Managers : pauses fixes selon le nom (cf. lignes ci-dessus)"
+        .Range(.Cells(atRow + 1, 1), .Cells(atRow + 4, 1)).Font.Bold = True
     End With
 End Sub
 
 '--------------------------------------------------------------------
-' Construit un dictionnaire {en-tête normalisé -> numéro de colonne}
+' Construit un dictionnaire {en-tÄ™te normalisÃ© -> numÃ©ro de colonne}
 ' en lisant la ligne 1 de la feuille BDD.
 '--------------------------------------------------------------------
 Function GetHeaderMap(wsBDD As Worksheet) As Object
@@ -733,28 +790,25 @@ Function GetCol(headers As Object, ByVal key As String) As Long
     If headers.Exists(key) Then
         GetCol = headers(key)
     Else
-        Err.Raise vbObjectError + 1, , "Colonne introuvable dans la BDD pour la clé : " & key
+        Err.Raise vbObjectError + 1, , "Colonne introuvable dans la BDD pour la clÃ© : " & key
     End If
 End Function
 
 '--------------------------------------------------------------------
-' Normalise un en-tête : majuscules, sans accents, sans espaces/points/apostrophes
+' Normalise un en-tÄ™te : majuscules, sans accents, sans espaces/points/apostrophes
 '--------------------------------------------------------------------
 Function NormalizeHeader(ByVal s As String) As String
     Dim r As String
     r = UCase(Trim(s))
-    r = Replace(r, "É", "E"): r = Replace(r, "È", "E"): r = Replace(r, "Ê", "E"): r = Replace(r, "Ë", "E")
-    r = Replace(r, "À", "A"): r = Replace(r, "Â", "A")
-    r = Replace(r, "Ô", "O")
-    r = Replace(r, "Î", "I"): r = Replace(r, "Ï", "I")
-    r = Replace(r, "Ù", "U"): r = Replace(r, "Û", "U")
-    r = Replace(r, "Ç", "C")
+    r = Replace(r, "Ã‰", "E"): r = Replace(r, "ÄŒ", "E"): r = Replace(r, "Ä˜", "E"): r = Replace(r, "Ã‹", "E")
+    r = Replace(r, "Å”", "A"): r = Replace(r, "Ã‚", "A")
+    r = Replace(r, "Ã”", "O")
+    r = Replace(r, "ÃŽ", "I"): r = Replace(r, "ÄŽ", "I")
+    r = Replace(r, "Å®", "U"): r = Replace(r, "Å°", "U")
+    r = Replace(r, "Ã‡", "C")
     r = Replace(r, ".", "")
     r = Replace(r, "'", "")
     r = Replace(r, "-", "")
     r = Replace(r, " ", "")
     NormalizeHeader = r
 End Function
-
-
-
