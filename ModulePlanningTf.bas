@@ -601,8 +601,10 @@ Function GetHeaderMap(wsBDD As Worksheet) As Object
 End Function
 
 Function GetCol(headers As Object, ByVal key As String) As Long
-    If headers.Exists(key) Then
-        GetCol = headers(key)
+    Dim normKey As String
+    normKey = NormalizeHeader(key)
+    If headers.Exists(normKey) Then
+        GetCol = headers(normKey)
     Else
         Err.Raise vbObjectError + 1, , "Colonne introuvable dans la BDD pour la cle : " & key
     End If
