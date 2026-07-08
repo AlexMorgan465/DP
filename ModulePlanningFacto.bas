@@ -51,10 +51,11 @@ Option Explicit
 '          Dami / El Moubarik = "court le jeudi" (jeudi -1h, vendredi normal)
 '          Bara / Intaj       = "court le vendredi" (jeudi normal, vendredi -1h)
 '      - Week-end OFF comme tout collaborateur.
-'      - Pause déjeuner spécifique : 12h-12h30 (30 min, au lieu d'1h), une
-'        seule personne à la fois parmi les 4, avec 30 min d'écart après
-'        chaque retour de pause. L'ordre de passage est tiré au sort à
-'        chaque génération du planning (cf. table "Rotation pause déjeuner").
+'      - Pause déjeuner : horaire FIXE d'1h par agent (pas de tirage au
+'        sort), décalé de 30 min d'un agent à l'autre pour étaler les
+'        pauses (cf. table "Planning pause déjeuner") :
+'          Dami : 12h-13h | Bara : 12h30-13h30
+'          Intaj : 13h-14h | El Moubarik : 13h30-14h30
 '      -> Adaptez GetAgentRole() si les noms exacts dans la BDD diffèrent.
 '
 ' La macro :
@@ -152,8 +153,9 @@ Sub GenererPlanningAccessibilite()
     ' --- Table de reference Shift / Pause dejeuner ---
     WriteShiftReferenceTable wsPlan, outRow + 2
 
-    ' --- Rotation pause dejeuner des 4 agents (Bara/Dami/El Moubarik/Intaj) ---
-    WriteLunchBreakRotation wsPlan, outRow + 5
+    ' --- Planning pause dejeuner (horaires fixes) des 4 agents ---
+    ' (Bara/Dami/El Moubarik/Intaj)
+    WriteLunchBreakTable wsBDD, wsPlan, headers, collabRows, nCollab, weekStart, outRow + 5
 
     ' --- Section manager ---
     Dim managerStartRow As Long
@@ -231,11 +233,6 @@ Function ProcessRow(wsBDD As Worksheet, wsPlan As Worksheet, headers As Object, 
     offCount = 0
     totalHeures = 0
 
-    ' Role special (Bara/Dami/El Moubarik/Intaj) pour horaires + pause dejeuner
-    ' specifiques (cf. point 7 de l'en-tete du module)
-    Dim agentRole As Integer
-    agentRole = GetAgentRole(nomComplet)
-
     Dim dayIndex As Integer
     For dayIndex = 1 To 7
         Dim dayDate As Date
@@ -274,13 +271,7 @@ Function ProcessRow(wsBDD As Worksheet, wsPlan As Worksheet, headers As Object, 
             wsPlan.Cells(outRow, colSortiePlan).Value = TimeSerial(sortieH, 0, 0)
             wsPlan.Cells(outRow, colSortiePlan).NumberFormat = "h:mm"
 
-            Dim pauseDeduite As Double
-            If agentRole > 0 And dayIndex <= 5 Then
-                pauseDeduite = 0.5 ' pause dejeuner specifique 12h-12h30 (30 min)
-            Else
-                pauseDeduite = 1   ' pause dejeuner standard 13h-14h (1h)
-            End If
-            totalHeures = totalHeures + (sortieH - entreeH - pauseDeduite)
+            totalHeures = totalHeures + (sortieH - entreeH - 1) ' -1h pause dejeuner
         End If
 
         If comment <> "" And StrComp(comment, "RAS", vbTextCompare) <> 0 Then
@@ -390,7 +381,7 @@ Function GetDayInfo(wsBDD As Worksheet, headers As Object, rowBDD As Long, _
             Dim isPairA As Boolean, pairIs7 As Boolean, baseEntreeDI As Integer
             weekStartDI = dayDate - (dayIndex - 1)
             isoWkDI = Application.WorksheetFunction.IsoWeekNum(weekStartDI)
-            pairA_is7 = (isoWkDI Mod 2 = 1) ' semaine impaire -> Bara/Dami = 7h-17h
+            pairA_is7 = (isoWkDI Mod 2 = 0) ' semaine paire -> Bara/Dami = 7h-17h
 
             isPairA = (agentRoleDI = 1 Or agentRoleDI = 2) ' Bara ou Dami
             If isPairA Then
@@ -602,87 +593,119 @@ Sub WriteShiftReferenceTable(wsPlan As Worksheet, atRow As Long)
 End Sub
 
 '--------------------------------------------------------------------
-' Ecrit la table de rotation des pauses dejeuner (12h-12h30) des 4 agents
-' Bara / Dami / El Moubarik / Intaj. Une seule personne a la fois, avec
-' 30 min d'ecart apres chaque retour de pause avant le passage suivant :
-'   Passage 1 : 12:00-12:30
-'   Passage 2 : 13:00-13:30   (30 min d'ecart apres le retour du 1er)
-'   Passage 3 : 14:00-14:30
-'   Passage 4 : 15:00-15:30
-' L'ordre de passage est tire au sort a chaque generation, pour chaque
-' jour ouvre (Lundi a Vendredi ; week-end OFF donc pas de pause).
+' Ecrit le tableau "Planning pause déjeuner" des 4 agents Bara / Dami /
+' El Moubarik / Intaj. Contrairement au planning principal, l'horaire de
+' pause est FIXE par agent (pas de rotation aleatoire), decale de 30 min
+' d'un agent a l'autre pour etaler les pauses sur le service :
+'   Dami        : 12:00-13:00
+'   Bara        : 12:30-13:30
+'   Intaj       : 13:00-14:00
+'   El Moubarik : 13:30-14:30
+' Meme mise en page que le planning principal (colonnes par jour, week-end
+' OFF), mais sans les colonnes OFF / NB heures / TT.
+' collabRows/nCollab : memes tableaux que ceux utilises pour la section
+' "Collaborateur", afin de conserver le meme ordre d'affichage.
 '--------------------------------------------------------------------
-Sub WriteLunchBreakRotation(wsPlan As Worksheet, atRow As Long)
-    Dim agentNames As Variant
-    agentNames = Array("Bara", "Dami", "El Moubarik", "Intaj")
+Sub WriteLunchBreakTable(wsBDD As Worksheet, wsPlan As Worksheet, headers As Object, _
+                          collabRows As Variant, nCollab As Long, _
+                          weekStart As Date, atRow As Long)
 
-    With wsPlan
-        .Range(.Cells(atRow, 1), .Cells(atRow, 5)).Merge
-        .Cells(atRow, 1).Value = "Rotation pause déjeuner - Bara / Dami / El Moubarik / Intaj (aléatoire, 30 min d'écart après chaque retour)"
-        .Cells(atRow, 1).Font.Bold = True
-        .Cells(atRow, 1).Interior.Color = RGB(31, 73, 125)
-        .Cells(atRow, 1).Font.Color = RGB(255, 255, 255)
-    End With
+    Dim r1 As Long, r2 As Long
+    r1 = atRow
+    r2 = atRow + 1
 
-    Dim headerRow As Long
-    headerRow = atRow + 1
-    wsPlan.Cells(headerRow, 1).Value = "Jour"
-    Dim c As Long
-    For c = 1 To 4
-        wsPlan.Cells(headerRow, c + 1).Value = "Passage " & c
-    Next c
-    With wsPlan.Range(wsPlan.Cells(headerRow, 1), wsPlan.Cells(headerRow, 5))
+    With wsPlan.Range(wsPlan.Cells(r1, 1), wsPlan.Cells(r1, 2))
+        .Merge
+        .Value = "Planning pause déjeuner"
+        .HorizontalAlignment = xlCenter
+        .Interior.Color = RGB(31, 73, 125)
+        .Font.Color = RGB(255, 255, 255)
         .Font.Bold = True
-        .Interior.Color = RGB(217, 226, 243)
     End With
 
-    Dim jours As Variant
-    jours = Array("Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi")
+    Dim dayIndex As Integer
+    For dayIndex = 1 To 7
+        Dim c1 As Long, c2 As Long
+        c1 = 3 + (dayIndex - 1) * 2
+        c2 = c1 + 1
+        Dim dayDate As Date
+        dayDate = weekStart + (dayIndex - 1)
+        With wsPlan.Range(wsPlan.Cells(r1, c1), wsPlan.Cells(r1, c2))
+            .Merge
+            .Value = DayLabel(dayIndex) & " " & Format(dayDate, "dd mmmm yyyy")
+            .HorizontalAlignment = xlCenter
+            .Interior.Color = RGB(31, 73, 125)
+            .Font.Color = RGB(255, 255, 255)
+            .Font.Bold = True
+        End With
+        wsPlan.Cells(r2, c1).Value = "D P"
+        wsPlan.Cells(r2, c2).Value = "F P"
+    Next dayIndex
 
-    Randomize
+    wsPlan.Cells(r2, 1).Value = "Zones"
+    wsPlan.Cells(r2, 2).Value = "Collaborateur"
+    wsPlan.Cells(r2, 17).Value = "Commentaires"
 
-    Dim d As Integer
-    For d = 0 To 4 ' Lundi a Vendredi uniquement (week-end OFF)
-        Dim r As Long
-        r = headerRow + 1 + d
-        wsPlan.Cells(r, 1).Value = jours(d)
+    With wsPlan.Range(wsPlan.Cells(r2, 1), wsPlan.Cells(r2, 17))
+        .Interior.Color = RGB(217, 226, 243)
+        .Font.Bold = True
+        .HorizontalAlignment = xlCenter
+    End With
 
-        Dim order() As Integer
-        order = ShuffleOrder(4)
+    Dim outR As Long
+    outR = r2 + 1
 
-        Dim slotStart As Date
-        slotStart = TimeSerial(12, 0, 0)
-        Dim i As Integer
-        For i = 0 To 3
-            Dim nm As String
-            nm = agentNames(order(i))
-            Dim slotEnd As Date
-            slotEnd = slotStart + TimeSerial(0, 30, 0)
-            wsPlan.Cells(r, i + 2).Value = nm & " (" & Format(slotStart, "hh:mm") & "-" & Format(slotEnd, "hh:mm") & ")"
-            slotStart = slotStart + TimeSerial(1, 0, 0) ' pause 30 min + 30 min d'ecart
-        Next i
-    Next d
+    Dim i As Long
+    For i = 1 To nCollab
+        Dim rowBDD As Long
+        rowBDD = collabRows(i)
+        Dim nom As String, zone As String
+        nom = Trim(wsBDD.Cells(rowBDD, GetCol(headers, "NOMCOMPLET")).Value)
+        If nom = "" Then
+            nom = Trim(wsBDD.Cells(rowBDD, GetCol(headers, "NOM")).Value & " " & _
+                        wsBDD.Cells(rowBDD, GetCol(headers, "PRENOM")).Value)
+        End If
+        zone = Trim(wsBDD.Cells(rowBDD, GetCol(headers, "ZONES")).Value)
+
+        Dim role As Integer
+        role = GetAgentRole(nom)
+        If role > 0 Then
+            Dim debutP As Date, finP As Date
+            Select Case role
+                Case 1: debutP = TimeSerial(12, 30, 0): finP = TimeSerial(13, 30, 0) ' Bara
+                Case 2: debutP = TimeSerial(12, 0, 0): finP = TimeSerial(13, 0, 0)   ' Dami
+                Case 3: debutP = TimeSerial(13, 30, 0): finP = TimeSerial(14, 30, 0) ' El Moubarik
+                Case 4: debutP = TimeSerial(13, 0, 0): finP = TimeSerial(14, 0, 0)   ' Intaj
+            End Select
+
+            wsPlan.Cells(outR, 1).Value = zone
+            wsPlan.Cells(outR, 2).Value = nom
+            wsPlan.Cells(outR, 1).Font.Bold = True
+            wsPlan.Cells(outR, 2).Font.Bold = True
+
+            Dim d As Integer
+            For d = 1 To 7
+                Dim cc1 As Long, cc2 As Long
+                cc1 = 3 + (d - 1) * 2
+                cc2 = cc1 + 1
+                If d <= 5 Then
+                    wsPlan.Cells(outR, cc1).Value = debutP
+                    wsPlan.Cells(outR, cc1).NumberFormat = "h:mm"
+                    wsPlan.Cells(outR, cc2).Value = finP
+                    wsPlan.Cells(outR, cc2).NumberFormat = "h:mm"
+                Else
+                    wsPlan.Cells(outR, cc1).Value = "OFF"
+                    wsPlan.Cells(outR, cc2).Value = "OFF"
+                    wsPlan.Cells(outR, cc1).Font.Color = RGB(192, 0, 0)
+                    wsPlan.Cells(outR, cc2).Font.Color = RGB(192, 0, 0)
+                End If
+            Next d
+
+            wsPlan.Cells(outR, 17).Value = "RAS"
+            outR = outR + 1
+        End If
+    Next i
 End Sub
-
-'--------------------------------------------------------------------
-' Renvoie un tableau (0 a n-1) contenant une permutation aleatoire des
-' entiers 0..n-1 (algorithme de Fisher-Yates).
-'--------------------------------------------------------------------
-Function ShuffleOrder(ByVal n As Integer) As Integer()
-    Dim arr() As Integer
-    ReDim arr(0 To n - 1)
-    Dim i As Integer
-    For i = 0 To n - 1
-        arr(i) = i
-    Next i
-    For i = n - 1 To 1 Step -1
-        Dim j As Integer
-        j = Int((i + 1) * Rnd)
-        Dim tmp As Integer
-        tmp = arr(i): arr(i) = arr(j): arr(j) = tmp
-    Next i
-    ShuffleOrder = arr
-End Function
 
 '--------------------------------------------------------------------
 ' Construit un dictionnaire {en-tête normalisé -> numéro de colonne}
