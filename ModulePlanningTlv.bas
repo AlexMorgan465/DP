@@ -38,6 +38,20 @@ Option Explicit
 '
 ' Priorite des regles (du + fort au + faible) : Contrat > Maladie > Congé > Défaut,
 ' puis annotation Télétravail si applicable et que le jour est travaille.
+
+' 7. Rotation "Abdelaoui / Aziane" (2 plannings-types de 40h qui s'échangent
+'    entre ces deux collaboratrices chaque semaine, selon la parité du n°
+'    de semaine ISO) :
+'      Planning A (40h) : Lun 8h-18h, Mar 9h-18h, Mer 9h-18h, Jeu 9h-18h,
+'                          Ven 10h-18h, Sam/Dim OFF
+'      Planning B (40h) : Lun OFF, Mar 8h-18h, Mer 8h-18h, Jeu 8h-17h,
+'                          Ven 8h-17h, Sam 8h-14h (pas de pause dej ce jour-
+'                          la, journée courte), Dim OFF
+'    Semaine paire (ex: S28) -> Abdelaoui = Planning A, Aziane = Planning B
+'    Semaine impaire (ex: S27) -> inversé (Abdelaoui = B, Aziane = A)
+'    Diop et Sylla gardent le planning fixe standard (Lun-Ven 8h-17h,
+'    week-end OFF = 40h), déjà couvert par l'horaire par défaut ci-dessus.
+'    -> Adaptez GetAgentRole() si les noms exacts dans la BDD diffèrent.
 '
 ' La macro :
 '   a) Met a jour les colonnes horaires (LUN. Entrée ... DIM. Sortie) de la feuille
@@ -161,6 +175,23 @@ Function EstManager(ByVal managerFlagValue As String) As Boolean
 End Function
 
 '--------------------------------------------------------------------
+' Identifie le role special d'un agent parmi Abdelaoui / Aziane (rotation
+' de 2 plannings-types, cf. point 7 de l'en-tete du module) a partir de
+' son nom complet. 0 = agent normal (horaire par defaut standard).
+'--------------------------------------------------------------------
+Function GetAgentRole(ByVal nomComplet As String) As Integer
+    Dim u As String
+    u = UCase(nomComplet)
+    If InStr(u, "ABDELAOUI") > 0 Then
+        GetAgentRole = 1
+    ElseIf InStr(u, "AZIANE") > 0 Then
+        GetAgentRole = 2
+    Else
+        GetAgentRole = 0
+    End If
+End Function
+
+'--------------------------------------------------------------------
 ' Traite une ligne BDD (collaborateur ou manager) : calcule les horaires
 ' de la semaine, met à jour la BDD, écrit la ligne dans le planning.
 ' Retourne la prochaine ligne libre dans la feuille planning.
@@ -188,13 +219,19 @@ Function ProcessRow(wsBDD As Worksheet, wsPlan As Worksheet, headers As Object, 
     offCount = 0
     totalHeures = 0
 
+    ' Role special Abdelaoui/Aziane (rotation 2 plannings-types, point 7 de
+    ' l'en-tete du module) : impacte uniquement la deduction de pause du
+    ' samedi (journee courte 8h-14h sans pause dejeuner)
+    Dim agentRole As Integer
+    agentRole = GetAgentRole(nomComplet)
+
     Dim dayIndex As Integer
     For dayIndex = 1 To 7
         Dim dayDate As Date
         dayDate = weekStart + (dayIndex - 1)
 
         Dim info As Variant
-        info = GetDayInfo(wsBDD, headers, rowBDD, dayDate, dayIndex, isManager)
+        info = GetDayInfo(wsBDD, headers, rowBDD, dayDate, dayIndex, isManager, nomComplet)
         Dim entreeH As Integer, sortieH As Integer, isOff As Boolean, comment As String
         entreeH = info(0): sortieH = info(1): isOff = info(2): comment = info(3)
 
@@ -226,7 +263,13 @@ Function ProcessRow(wsBDD As Worksheet, wsPlan As Worksheet, headers As Object, 
             wsPlan.Cells(outRow, colSortiePlan).Value = TimeSerial(sortieH, 0, 0)
             wsPlan.Cells(outRow, colSortiePlan).NumberFormat = "h:mm"
 
-            totalHeures = totalHeures + (sortieH - entreeH - 1) ' -1h pause dejeuner
+            Dim pauseDeduite As Double
+            If agentRole > 0 And dayIndex = 6 Then
+                pauseDeduite = 0 ' samedi : journee courte, pas de pause dejeuner
+            Else
+                pauseDeduite = 1
+            End If
+            totalHeures = totalHeures + (sortieH - entreeH - pauseDeduite)
         End If
 
         If comment <> "" And StrComp(comment, "RAS", vbTextCompare) <> 0 Then
@@ -262,7 +305,8 @@ End Function
 ' Retourne un tableau : (entreeHeure, sortieHeure, isOff, commentaire)
 '--------------------------------------------------------------------
 Function GetDayInfo(wsBDD As Worksheet, headers As Object, rowBDD As Long, _
-                     dayDate As Date, dayIndex As Integer, isManager As Boolean) As Variant
+                     dayDate As Date, dayIndex As Integer, isManager As Boolean, _
+                     Optional ByVal nomComplet As String = "") As Variant
 
     Dim entreeH As Integer, sortieH As Integer, isOff As Boolean, comment As String
     isOff = False
@@ -325,21 +369,58 @@ Function GetDayInfo(wsBDD As Worksheet, headers As Object, rowBDD As Long, _
 
     ' 4) Horaire par defaut si aucune exception n'a mis la journee en OFF ---
     If Not isOff Then
-        entreeH = 8
-        If isManager Then
+        Dim agentRoleDI As Integer
+        agentRoleDI = GetAgentRole(nomComplet)
+
+        If agentRoleDI > 0 Then
+            ' ---- Rotation 2 plannings-types Abdelaoui/Aziane (point 7) ----
+            Dim weekStartDI As Date, isoWkDI As Long, weekIsEven As Boolean
+            Dim role1HasPlanA As Boolean, thisRoleHasPlanA As Boolean
+            weekStartDI = dayDate - (dayIndex - 1)
+            isoWkDI = Application.WorksheetFunction.IsoWeekNum(weekStartDI)
+            weekIsEven = (isoWkDI Mod 2 = 0)
+
+            ' Semaine paire -> Abdelaoui (role 1) a le Planning A ; impaire -> inverse
+            role1HasPlanA = weekIsEven
+            thisRoleHasPlanA = IIf(agentRoleDI = 1, role1HasPlanA, Not role1HasPlanA)
+
+            If thisRoleHasPlanA Then
+                ' Planning A (40h) : Lun 8-18, Mar-Jeu 9-18, Ven 10-18, Sam/Dim OFF
+                Select Case dayIndex
+                    Case 1: entreeH = 8: sortieH = 18
+                    Case 2 To 4: entreeH = 9: sortieH = 18
+                    Case 5: entreeH = 10: sortieH = 18
+                    Case Else: isOff = True ' Samedi / Dimanche
+                End Select
+            Else
+                ' Planning B (40h) : Lun OFF, Mar-Mer 8-18, Jeu-Ven 8-17,
+                ' Sam 8-14 (journee courte), Dim OFF
+                Select Case dayIndex
+                    Case 1: isOff = True ' Lundi OFF
+                    Case 2, 3: entreeH = 8: sortieH = 18
+                    Case 4, 5: entreeH = 8: sortieH = 17
+                    Case 6: entreeH = 8: sortieH = 14
+                    Case 7: isOff = True ' Dimanche
+                End Select
+            End If
+            If comment = "" Then comment = "RAS"
+        ElseIf isManager Then
+            entreeH = 8
             If dayIndex <= 5 Then
                 sortieH = 17
             Else
                 isOff = True
             End If
+            If comment = "" Then comment = "RAS"
         Else
+            entreeH = 8
             Select Case dayIndex
                 Case 1 To 4: sortieH = 17
                 Case 5: sortieH = 17
                 Case Else: isOff = True ' Samedi / Dimanche
             End Select
+            If comment = "" Then comment = "RAS"
         End If
-        If comment = "" Then comment = "RAS"
     Else
         If comment = "" Then comment = "RAS" ' week-end normal, sans cause particuliere
     End If
