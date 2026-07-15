@@ -1,0 +1,1526 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formulaire de Conformité Accessibilité</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <!-- SheetJS pour l'export Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --ink: #101826;
+            --ink-soft: #4B5768;
+            --ink-faint: #8994A3;
+            --surface: #FFFFFF;
+            --bg: #EEF1F5;
+            --line: #DCE2E8;
+            --line-soft: #E9EDF1;
+            --accent: #0F6E77;
+            --accent-dark: #0A4D54;
+            --accent-tint: #E3F1F1;
+            --gold: #C97B3D;
+            --good: #1E8E5A;
+            --good-tint: #E7F5EE;
+            --bad: #C23B3B;
+            --bad-tint: #FCEAEA;
+            --na: #6B7684;
+            --na-tint: #EEF0F3;
+            --nr: #B07A17;
+            --nr-tint: #FBF2E1;
+            --radius-sm: 6px;
+            --radius: 10px;
+            --radius-lg: 14px;
+            --shadow-sm: 0 1px 2px rgba(16, 24, 38, .06);
+            --shadow: 0 1px 2px rgba(16,24,38,.05), 0 10px 30px -12px rgba(16,24,38,.18);
+            --font-body: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: var(--font-body);
+            background:
+                radial-gradient(1100px 480px at 100% -10%, #E9F2F2 0%, transparent 60%),
+                var(--bg);
+            color: var(--ink);
+            line-height: 1.6;
+            padding: 28px 20px 60px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        ::selection {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        :focus-visible {
+            outline: 3px solid var(--gold);
+            outline-offset: 2px;
+        }
+
+        .container {
+            max-width: 1320px;
+            margin: 0 auto;
+        }
+
+        /* ==================== HEADER ==================== */
+        header {
+            background:
+                linear-gradient(155deg, #0C222A 0%, #123840 46%, var(--accent-dark) 100%);
+            color: #F3F7F7;
+            padding: 34px 36px;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow);
+            margin-bottom: 18px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        header::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-image:
+                repeating-linear-gradient(90deg, rgba(255,255,255,.045) 0 1px, transparent 1px 46px);
+            pointer-events: none;
+        }
+
+        header .eyebrow {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            letter-spacing: .16em;
+            text-transform: uppercase;
+            color: #9FD8D2;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        header .eyebrow::before {
+            content: "";
+            width: 22px;
+            height: 1px;
+            background: #9FD8D2;
+            display: inline-block;
+        }
+
+        h1 {
+            font-size: 27px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        h1 i {
+            font-size: 24px;
+            width: 46px;
+            height: 46px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,.09);
+            border: 1px solid rgba(255,255,255,.16);
+            border-radius: 12px;
+            flex-shrink: 0;
+        }
+
+        .header-description {
+            font-size: 15px;
+            color: #C7DAD8;
+            max-width: 700px;
+            font-weight: 400;
+        }
+
+        /* ==================== STICKY DASHBOARD ==================== */
+        .dashboard {
+            position: sticky;
+            top: 12px;
+            z-index: 40;
+            display: grid;
+            grid-template-columns: 1.15fr 2fr;
+            gap: 14px;
+            margin-bottom: 22px;
+        }
+
+        .quality-note {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 18px 22px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .quality-note h2 {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .1em;
+            color: var(--ink-faint);
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+
+        .quality-note h2 i {
+            color: var(--gold);
+            font-size: 12px;
+        }
+
+        .note-value {
+            font-family: var(--font-mono);
+            font-size: 34px;
+            font-weight: 600;
+            line-height: 1;
+            letter-spacing: -0.02em;
+        }
+
+        .note-gauge {
+            width: 100%;
+            height: 8px;
+            background: var(--line-soft);
+            border-radius: 99px;
+            overflow: hidden;
+            margin: 2px 0 4px;
+        }
+
+        .note-gauge-fill {
+            height: 100%;
+            border-radius: 99px;
+            transition: width .4s ease;
+        }
+
+        .note-details {
+            font-size: 12.5px;
+            color: var(--ink-soft);
+        }
+
+        .note-details strong {
+            color: var(--ink);
+        }
+
+        .note-threshold {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--ink-faint);
+            margin-top: 2px;
+        }
+
+        .status-summary {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        .status-card {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-sm);
+            padding: 14px 14px 12px;
+            text-align: left;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .status-card::before {
+            content: "";
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 3px;
+        }
+
+        .status-card h3 {
+            font-size: 10.5px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--ink-faint);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 6px;
+        }
+
+        .status-value {
+            font-family: var(--font-mono);
+            font-size: 24px;
+            font-weight: 600;
+            line-height: 1;
+        }
+
+        .status-card p {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--ink-faint);
+            margin-top: 4px;
+        }
+
+        .conforme { color: var(--good); }
+        .non-conforme { color: var(--bad); }
+        .non-applicable { color: var(--na); }
+        .non-renseigne { color: var(--nr); }
+
+        .status-card.card-c::before { background: var(--good); }
+        .status-card.card-nc::before { background: var(--bad); }
+        .status-card.card-na::before { background: var(--na); }
+        .status-card.card-nr::before { background: var(--nr); }
+
+        /* segmented progress bar under the four cards */
+        .segment-bar {
+            grid-column: 1 / -1;
+            display: flex;
+            height: 8px;
+            border-radius: 99px;
+            overflow: hidden;
+            background: var(--line-soft);
+            border: 1px solid var(--line);
+        }
+
+        .segment-bar span {
+            height: 100%;
+            transition: width .4s ease;
+        }
+
+        /* ==================== DOCUMENT INFO ==================== */
+        .document-info {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            padding: 26px 28px;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 22px;
+        }
+
+        .document-info > h2 {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--ink-soft);
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            margin-bottom: 20px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid var(--line-soft);
+        }
+
+        .document-info > h2 i {
+            color: var(--accent);
+        }
+
+        .info-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 18px;
+        }
+
+        .info-row:last-child { margin-bottom: 0; }
+
+        .form-group {
+            flex: 1;
+            min-width: 280px;
+        }
+
+        label {
+            display: block;
+            font-size: 12.5px;
+            font-weight: 600;
+            margin-bottom: 7px;
+            color: var(--ink-soft);
+        }
+
+        label i { color: var(--accent); margin-right: 2px; }
+
+        input, select {
+            width: 100%;
+            padding: 11px 14px;
+            border: 1.5px solid var(--line);
+            border-radius: var(--radius-sm);
+            font-size: 15px;
+            font-family: var(--font-body);
+            color: var(--ink);
+            background: var(--surface);
+            transition: border-color .15s, box-shadow .15s;
+        }
+
+        input:hover, select:hover { border-color: #C5CCD5; }
+
+        input:focus, select:focus {
+            border-color: var(--accent);
+            outline: none;
+            box-shadow: 0 0 0 3px var(--accent-tint);
+        }
+
+        .readonly-field {
+            background-color: var(--bg);
+            color: var(--ink-soft);
+            font-family: var(--font-mono);
+            font-size: 13.5px;
+            cursor: not-allowed;
+        }
+
+        /* ==================== COMPLIANCE TABLE ==================== */
+        .compliance-table {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 22px;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: var(--ink);
+            color: #fff;
+        }
+
+        th {
+            padding: 15px 16px;
+            text-align: left;
+            font-size: 11.5px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .07em;
+            white-space: nowrap;
+        }
+
+        tbody tr {
+            border-bottom: 1px solid var(--line-soft);
+            border-left: 3px solid transparent;
+            border-left-color: var(--row-accent, transparent);
+            transition: background-color .12s;
+        }
+
+        tbody tr[data-critere]:hover {
+            background-color: var(--row-tint, #F7F9FB);
+        }
+
+        td {
+            padding: 14px 16px;
+            vertical-align: top;
+            font-size: 14.5px;
+        }
+
+        .theme-row {
+            background: var(--row-tint, var(--bg)) !important;
+            font-weight: 600;
+        }
+
+        .theme-row td {
+            padding: 13px 16px;
+            border-top: 1px solid var(--line);
+        }
+
+        .theme-row .theme-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            letter-spacing: .03em;
+            color: var(--ink);
+        }
+
+        .theme-row .theme-num {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            font-weight: 700;
+            color: #fff;
+            background: var(--row-accent, var(--accent));
+            padding: 3px 8px;
+            border-radius: 5px;
+            flex-shrink: 0;
+        }
+
+        .critere-num {
+            font-family: var(--font-mono);
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--ink-soft);
+            white-space: nowrap;
+        }
+
+        .compliance-select {
+            min-width: 190px;
+        }
+
+        .compliance-status {
+            font-weight: 500;
+        }
+
+        .comment-cell {
+            min-width: 280px;
+        }
+
+        .comment-input {
+            width: 100%;
+            padding: 9px 12px;
+            border: 1.5px solid var(--bad);
+            background: var(--bad-tint);
+            border-radius: var(--radius-sm);
+            font-size: 13.5px;
+            font-family: var(--font-body);
+            display: none;
+            resize: vertical;
+        }
+
+        .comment-input:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(194,59,59,.15);
+        }
+
+        .comment-input.show {
+            display: block;
+        }
+
+        .comment-input::placeholder {
+            color: #B96565;
+        }
+
+        .color-preview {
+            display: none; /* replaced by .theme-num badge */
+        }
+
+        /* ==================== INSTRUCTIONS ==================== */
+        .instructions {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-left: 4px solid var(--gold);
+            padding: 20px 24px;
+            border-radius: 0 var(--radius) var(--radius) 0;
+            margin-top: 26px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .instructions h3 {
+            color: var(--ink);
+            font-size: 13.5px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+        }
+
+        .instructions h3 i { color: var(--gold); }
+
+        .instructions ul {
+            padding-left: 20px;
+        }
+
+        .instructions li {
+            margin-bottom: 7px;
+            font-size: 14px;
+            color: var(--ink-soft);
+        }
+
+        .instructions li::marker {
+            color: var(--gold);
+        }
+
+        /* ==================== ACTIONS ==================== */
+        .actions {
+            display: flex;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 26px;
+            margin-bottom: 26px;
+        }
+
+        button {
+            padding: 13px 22px;
+            border: 1.5px solid transparent;
+            border-radius: var(--radius-sm);
+            font-size: 14.5px;
+            font-weight: 600;
+            font-family: var(--font-body);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 9px;
+            transition: transform .1s ease, box-shadow .15s ease, background-color .15s ease, border-color .15s ease;
+        }
+
+        button:active { transform: translateY(1px); }
+
+        .export-btn {
+            background: var(--accent);
+            color: #fff;
+            box-shadow: 0 6px 16px -6px rgba(15,110,119,.55);
+            order: 4;
+        }
+        .export-btn:hover { background: var(--accent-dark); }
+
+        .import-btn {
+            background: var(--surface);
+            color: var(--accent-dark);
+            border-color: var(--accent);
+            order: 1;
+        }
+        .import-btn:hover { background: var(--accent-tint); }
+
+        .save-btn {
+            background: var(--surface);
+            color: var(--ink);
+            border-color: var(--line);
+            order: 2;
+        }
+        .save-btn:hover { border-color: #C5CCD5; background: var(--bg); }
+
+        .reset-btn {
+            background: transparent;
+            color: var(--bad);
+            border-color: transparent;
+            box-shadow: none;
+            order: 3;
+        }
+        .reset-btn:hover { background: var(--bad-tint); }
+
+        /* ==================== LOADING ==================== */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            font-size: 15px;
+            color: var(--ink-soft);
+            font-family: var(--font-mono);
+        }
+
+        .loading i {
+            margin-right: 10px;
+            color: var(--accent);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* ==================== FOOTER ==================== */
+        .footer {
+            text-align: center;
+            margin-top: 44px;
+            padding-top: 22px;
+            border-top: 1px solid var(--line);
+            color: var(--ink-faint);
+            font-size: 13px;
+            font-family: var(--font-mono);
+        }
+
+        /* ==================== RESPONSIVE ==================== */
+        @media (max-width: 900px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+                position: static;
+            }
+            .status-summary {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            body { padding: 16px 12px 40px; }
+            header { padding: 24px; }
+            h1 { font-size: 21px; }
+            .info-row { flex-direction: column; gap: 14px; }
+            .form-group { min-width: 100%; }
+            .actions { flex-direction: column; }
+            .actions button { width: 100%; order: initial !important; }
+            .document-info, .instructions { padding: 20px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: .001ms !important;
+                transition-duration: .001ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <p class="eyebrow">RAPDF · Contrôle d'accessibilité documentaire</p>
+            <h1><i class="fas fa-universal-access"></i> Formulaire de Conformité Accessibilité</h1>
+            <p class="header-description">Cet outil permet d'évaluer la conformité d'un document aux critères d'accessibilité. Remplissez les informations du document et évaluez chaque critère.</p>
+        </header>
+
+        <div class="dashboard">
+            <div class="quality-note" id="qualityNote"></div>
+            <div class="status-summary" id="status-summary"></div>
+        </div>
+        
+        <section class="document-info">
+            <h2><i class="fas fa-file-alt"></i> Informations du document</h2>
+            <div class="info-row">
+                <div class="form-group">
+                    <label for="doc-name">Nom du document *</label>
+                    <input type="text" id="doc-name" placeholder="Ex: Rapport annuel 2023">
+                </div>
+                <div class="form-group">
+                    <label for="doc-type">Type de document</label>
+                    <select id="doc-type">
+                        <option value="">Sélectionnez un type</option>
+                        <option value="web">Site web / Application</option>
+                        <option value="pdf">Document PDF</option>
+                        <option value="word">Document Word</option>
+                        <option value="ppt">Présentation PowerPoint</option>
+                        <option value="excel">Document Excel</option>
+                        <option value="autre">Autre</option>
+                    </select>
+                </div>
+            </div>
+            <div class="info-row">
+                <div class="form-group">
+                    <label for="doc-date">Date d'évaluation</label>
+                    <input type="date" id="doc-date">
+                </div>
+                <div class="form-group">
+                    <label for="evaluator">Évaluateur</label>
+                    <input type="text" id="evaluator" placeholder="Nom de l'évaluateur">
+                </div>
+            </div>
+            <div class="info-row">
+                <div class="form-group">
+                    <label for="evalue">Évalué (Agent) <i class="fas fa-user-check"></i></label>
+                    <input type="text" id="evalue" placeholder="Nom de l'agent évalué">
+                </div>
+                <div class="form-group">
+                    <label for="week-number">Numéro de semaine ISO <i class="fas fa-calendar-week"></i></label>
+                    <input type="text" id="week-number" class="readonly-field" readonly placeholder="Calculé automatiquement">
+                </div>
+            </div>
+        </section>
+        
+        <section class="compliance-table">
+            <table id="compliance-table">
+                <thead>
+                    <tr>
+                        <th width="20%">Thème</th>
+                        <th width="10%">Critère</th>
+                        <th width="40%">Intitulé</th>
+                        <th width="15%">Conformité</th>
+                        <th width="15%">Commentaire</th>
+                    </tr>
+                </thead>
+                <tbody id="compliance-body"></tbody>
+            </table>
+        </section>
+        
+        <div class="loading" id="loading">
+            <i class="fas fa-spinner"></i> Génération du fichier Excel...
+        </div>
+        
+        <div class="instructions">
+            <h3><i class="fas fa-info-circle"></i> Instructions</h3>
+            <ul>
+                <li>Remplissez toutes les informations du document.</li>
+                <li>Pour chaque critère, sélectionnez l'état de conformité.</li>
+                <li>Si "Non conforme", ajoutez un commentaire obligatoire.</li>
+                <li>L'export Excel génère un fichier .xlsx formaté.</li>
+                <li>Note sur 100 avec seuil à 85% (Rouge < 85%, Vert ≥ 85%).</li>
+            </ul>
+        </div>
+        
+        <div class="actions">
+            <button class="import-btn" id="import-btn"><i class="fas fa-file-import"></i> Importer une fiche</button>
+            <input type="file" id="import-file-input" accept=".xlsx,.xls" style="display:none;">
+            <button class="reset-btn" id="reset-btn"><i class="fas fa-redo"></i> Réinitialiser</button>
+            <button class="save-btn" id="save-btn"><i class="fas fa-save"></i> Sauvegarder</button>
+            <button class="export-btn" id="export-btn"><i class="fas fa-file-excel"></i> Exporter Excel</button>
+        </div>
+        
+        <div class="footer">
+            <p>Formulaire de conformité accessibilité — généré le <span id="current-date"></span></p>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // ==================== DONNÉES ====================
+            const CRITERIA_DATA = [
+                { theme: "1. ÉLÉMENTS GRAPHIQUES", critere: "1.1", intitule: "Chaque image décorative est-elle correctement ignorée par les technologies d'assistance ?", themeNumber: 1 },
+                { theme: "", critere: "1.2", intitule: "Chaque image porteuse d'information a-t-elle une alternative textuelle ?", themeNumber: 1 },
+                { theme: "", critere: "1.3", intitule: "Pour chaque image porteuse d'information ayant une alternative textuelle, cette alternative est-elle pertinente ?", themeNumber: 1 },
+                { theme: "", critere: "1.4", intitule: "Chaque image porteuse d'information a-t-elle, si nécessaire, une description détaillée ?", themeNumber: 1 },
+                { theme: "", critere: "1.5", intitule: "Pour chaque image porteuse d'information ayant une description détaillée, cette description est-elle pertinente ?", themeNumber: 1 },
+                { theme: "", critere: "1.6", intitule: "Chaque légende d'image, si nécessaire, est-elle correctement liée à l'image correspondante ?", themeNumber: 1 },
+                { theme: "", critere: "1.7", intitule: "Chaque image de texte porteuse d'information doit être remplacée par du texte stylé. Cette règle est-elle respectée ?", themeNumber: 1 },
+                { theme: "2. COULEURS", critere: "2.1", intitule: "L'information ne doit pas être donnée uniquement par la couleur. Cette règle est-elle respectée ?", themeNumber: 2 },
+                { theme: "", critere: "2.2", intitule: "Le contraste entre la couleur du texte et la couleur de son arrière-plan est-il suffisamment élevé ?", themeNumber: 2 },
+                { theme: "", critere: "2.3", intitule: "Les couleurs utilisées dans les éléments graphiques porteurs d'information sont-elles suffisamment contrastées ?", themeNumber: 2 },
+                { theme: "3. TABLEAUX", critere: "3.1", intitule: "Chaque tableau de données complexe a-t-il une alternative ?", themeNumber: 3 },
+                { theme: "", critere: "3.2", intitule: "Pour chaque tableau de données complexe ayant une alternative, cette alternative est-elle pertinente ?", themeNumber: 3 },
+                { theme: "", critere: "3.3", intitule: "Pour chaque tableau de données, les en-têtes sont-elles correctement déclarées ?", themeNumber: 3 },
+                { theme: "", critere: "3.4", intitule: "Pour chaque tableau de présentation, le contenu linéarisé reste-t-il compréhensible ?", themeNumber: 3 },
+                { theme: "", critere: "3.5", intitule: "Chaque tableau de présentation ne doit pas utiliser d'éléments spécifiques aux tableaux de données. Cette règle est-elle respectée ?", themeNumber: 3 },
+                { theme: "4. LIENS", critere: "4.1", intitule: "Chaque lien est-il explicite ?", themeNumber: 4 },
+                { theme: "", critere: "4.2", intitule: "Chaque lien a-t-il un nom accessible ?", themeNumber: 4 },
+                { theme: "5. STRUCTURE DE L'INFORMATION", critere: "5.1", intitule: "L'information est-elle structurée par l'utilisation appropriée de titres ?", themeNumber: 5 },
+                { theme: "", critere: "5.2", intitule: "Tout contenu présenté sous forme de liste utilise-t-il un style de liste ?", themeNumber: 5 },
+                { theme: "", critere: "5.3", intitule: "Les éléments de structure ne doivent pas être utilisés uniquement à des fins de mise en page. Cette règle est-elle respectée ?", themeNumber: 5 },
+	        { theme: "", critere: "5.4", intitule: "Chaque bloc de citation est-il correctement indiqué ?", themeNumber: 5 },
+                { theme: "6. PRÉSENTATION DE L'INFORMATION", critere: "6.1", intitule: "L'ordre de restitution du contenu est-il cohérent ?", themeNumber: 6 },
+                { theme: "", critere: "6.2", intitule: "L'information ne doit pas être véhiculée uniquement par la forme, la taille ou la position. Cette règle est-elle respectée ?", themeNumber: 6 },
+                { theme: "", critere: "6.3", intitule: "Chaque lien, indiqué uniquement par la couleur et dont la nature n'est pas évidente, est-il visible par rapport au texte environnant ?", themeNumber: 6 },
+                { theme: "8. ÉLÉMENTS OBLIGATOIRES", critere: "8.1", intitule: "Le document possède-t-il un titre de document ?", themeNumber: 8 },
+                { theme: "", critere: "8.2", intitule: "Le titre de document est-il pertinent (sauf cas particuliers) ?", themeNumber: 8 },
+                { theme: "9. CONSULTATION", critere: "9.1", intitule: "Chaque forme complexe décorative est-elle correctement ignorée par les technologies d'assistance ?", themeNumber: 9 },
+                { theme: "", critere: "9.2", intitule: "Chaque forme complexe porteuse d'information a-t-elle une alternative textuelle ?", themeNumber: 9 },
+                { theme: "", critere: "9.3", intitule: "Pour chaque forme complexe porteuse d'information ayant une alternative textuelle, cette alternative est-elle pertinente ?", themeNumber: 9 },
+                { theme: "", critere: "9.4", intitule: "Chaque forme complexe porteuse d'information a-t-elle, si nécessaire, une description détaillée ?", themeNumber: 9 },
+                { theme: "", critere: "9.5", intitule: "Pour chaque forme complexe porteuse d'information ayant une description détaillée, cette description est-elle pertinente ?", themeNumber: 9 },
+                { theme: "", critere: "9.6", intitule: "Chaque légende de forme complexe, si nécessaire, est-elle correctement liée à l'image correspondante ?", themeNumber: 9 },
+                { theme: "", critere: "9.7", intitule: "Chaque contenu cryptique (ASCII art, émoticône, syntaxe cryptique) a-t-il une alternative ?", themeNumber: 9 },
+                { theme: "", critere: "9.8", intitule: "Pour chaque contenu cryptique ayant une alternative, cette alternative est-elle pertinente ?", themeNumber: 9 },
+                { theme: "", critere: "9.9", intitule: "Chaque contenu clignotant ou en mouvement doit avoir une durée d'activation ≤5 secondes. Cette règle est-elle respectée ?", themeNumber: 9 },
+                { theme: "10. FORMULAIRE INTERACTIF", critere: "10.1", intitule: "Chaque champ de formulaire a-t-il un libellé ?", themeNumber: 10 },
+                { theme: "", critere: "10.2", intitule: "Chaque libellé associé à un champ de formulaire est-il pertinent ?", themeNumber: 10 },
+                { theme: "", critere: "10.3", intitule: "Chaque libellé associé à un champ de formulaire ayant la même fonction et répété plusieurs fois dans le même document est-il cohérent ?", themeNumber: 10 },
+                { theme: "", critere: "10.4", intitule: "Chaque libellé et son champ associé sont-ils situés l'un à côté de l'autre ?", themeNumber: 10 },
+                { theme: "", critere: "10.5", intitule: "Les champs de formulaire obligatoires sont-ils correctement identifiés ?", themeNumber: 10 },
+                { theme: "", critere: "10.6", intitule: "Pour chaque champ de formulaire obligatoire, le type et/ou le format de données attendus sont-ils disponibles ?", themeNumber: 10 },
+                { theme: "", critere: "10.7", intitule: "Chaque message d'erreur de saisie est-il correctement restitué ?", themeNumber: 10 },
+                { theme: "", critere: "10.8", intitule: "La gestion des erreurs est-elle accompagnée, si nécessaire, de suggestions sur les types, formats ou valeurs de données attendus ?", themeNumber: 10 },
+                { theme: "", critere: "10.9", intitule: "Chaque bouton de formulaire a-t-il un libellé ?", themeNumber: 10 },
+                { theme: "", critere: "10.10", intitule: "Le libellé de chaque bouton de formulaire est-il pertinent ?", themeNumber: 10 },
+                { theme: "", critere: "10.11", intitule: "Pour chaque formulaire modifiant ou supprimant des données, les données saisies peuvent-elles être modifiées, mises à jour ou récupérées par l'utilisateur ?", themeNumber: 10 }
+            ];
+
+            const THEME_COLORS = [
+                "FFE6E6", "FFF2E6", "FFFFE6", "F0FFE6", "E6FFFF",
+                "E6F3FF", "F0E6FF", "FFE6F3", "E8E8E8", "E6FFE6"
+            ];
+
+            // Palette d'accent utilisée uniquement pour l'écran (indépendante des couleurs Excel ci-dessus)
+            const UI_THEME_ACCENTS = [
+                { accent: "2E86AB", tint: "#EAF4F8" }, // 1. Éléments graphiques
+                { accent: "C1447E", tint: "#FBEAF1" }, // 2. Couleurs
+                { accent: "3F8F76", tint: "#E9F5F0" }, // 3. Tableaux
+                { accent: "6C5CE7", tint: "#EFEDFD" }, // 4. Liens
+                { accent: "B08D57", tint: "#F7F1E8" }, // 5. Structure de l'information
+                { accent: "3E6E8E", tint: "#E9F1F6" }, // 6. Présentation de l'information
+                { accent: "888888", tint: "#F2F2F2" }, // 7. (non utilisé)
+                { accent: "A6373F", tint: "#F8EAEB" }, // 8. Éléments obligatoires
+                { accent: "5E8B72", tint: "#EEF4F0" }, // 9. Consultation
+                { accent: "C97B3D", tint: "#FBEFE4" }  // 10. Formulaire interactif
+            ];
+
+            // ==================== ÉTAT GLOBAL ====================
+            let complianceData = {};
+
+            // ==================== FONCTIONS UTILITAIRES ====================
+            function getISOWeekNumber(dateStr) {
+                if (!dateStr) return '';
+                const d = new Date(dateStr);
+                d.setHours(0, 0, 0, 0);
+                d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+                const yearStart = new Date(d.getFullYear(), 0, 1);
+                return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+            }
+
+            function updateWeekNumber() {
+                const dateInput = document.getElementById('doc-date');
+                const weekInput = document.getElementById('week-number');
+                weekInput.value = dateInput.value ? `Semaine ${getISOWeekNumber(dateInput.value)}` : '';
+            }
+
+            function calculateStats() {
+                const counts = { c: 0, nc: 0, na: 0, nr: 0 };
+                Object.values(complianceData).forEach(item => {
+                    if (item.status === 'c') counts.c++;
+                    else if (item.status === 'nc') counts.nc++;
+                    else if (item.status === 'na') counts.na++;
+                    else counts.nr++;
+                });
+                counts.total = CRITERIA_DATA.length;
+                return counts;
+            }
+
+            function calculateQualityNote() {
+                const counts = calculateStats();
+                const evaluated = counts.c + counts.nc;
+                return evaluated > 0 ? (counts.c / evaluated) * 100 : 0;
+            }
+
+            function getNoteColor(note) {
+                return note >= 85 ? "1E8E5A" : "C23B3B";
+            }
+
+            // ==================== MISE À JOUR DE L'INTERFACE ====================
+            function updateStatusSummary() {
+                const counts = calculateStats();
+                const total = counts.total || 1;
+                const pct = (n) => Math.round((n / total) * 100);
+
+                document.getElementById('status-summary').innerHTML = `
+                    <div class="status-card card-c"><h3><i class="fas fa-check-circle"></i> Conforme</h3><div class="status-value conforme">${counts.c}</div><p>${pct(counts.c)}%</p></div>
+                    <div class="status-card card-nc"><h3><i class="fas fa-times-circle"></i> Non conforme</h3><div class="status-value non-conforme">${counts.nc}</div><p>${pct(counts.nc)}%</p></div>
+                    <div class="status-card card-na"><h3><i class="fas fa-minus-circle"></i> Non applicable</h3><div class="status-value non-applicable">${counts.na}</div><p>${pct(counts.na)}%</p></div>
+                    <div class="status-card card-nr"><h3><i class="fas fa-question-circle"></i> Non renseigné</h3><div class="status-value non-renseigne">${counts.nr}</div><p>${pct(counts.nr)}%</p></div>
+                    <div class="segment-bar" role="img" aria-label="${counts.c} conforme, ${counts.nc} non conforme, ${counts.na} non applicable, ${counts.nr} non renseigné, sur ${total} critères">
+                        <span style="width:${pct(counts.c)}%; background: var(--good);"></span><span style="width:${pct(counts.nc)}%; background: var(--bad);"></span><span style="width:${pct(counts.na)}%; background: var(--na);"></span><span style="width:${pct(counts.nr)}%; background: var(--nr);"></span>
+                    </div>
+                `;
+            }
+
+            function updateQualityNoteDisplay() {
+                const note = calculateQualityNote();
+                const counts = calculateStats();
+                const evaluated = counts.c + counts.nc;
+                const noteColor = getNoteColor(note);
+                const appreciation = note >= 85 ? 'Excellent — Conforme' : 'À améliorer — Non conforme';
+
+                document.getElementById('qualityNote').innerHTML = `
+                    <h2><i class="fas fa-star"></i> Note de qualité</h2>
+                    <div class="note-value" style="color: #${noteColor};">${note.toFixed(1)}<span style="font-size:16px; color: var(--ink-faint); font-weight:500;">/100</span></div>
+                    <div class="note-gauge"><div class="note-gauge-fill" style="width:${Math.min(note,100)}%; background:#${noteColor};"></div></div>
+                    <div class="note-details">
+                        <strong>${appreciation}</strong> — ${counts.c} conforme(s) sur ${evaluated} critère(s) évalué(s)<br>
+                        ${counts.nc} non conforme(s) · ${counts.na} non applicable(s)
+                    </div>
+                    <div class="note-threshold">Seuil de conformité : ≥ 85%</div>
+                `;
+            }
+
+            // ==================== GÉNÉRATION DU TABLEAU ====================
+            function generateComplianceTable() {
+                const tbody = document.getElementById('compliance-body');
+                tbody.innerHTML = '';
+                let currentTheme = '';
+
+                CRITERIA_DATA.forEach(item => {
+                    const themeAccent = UI_THEME_ACCENTS[item.themeNumber - 1] || UI_THEME_ACCENTS[0];
+
+                    if (item.theme && item.theme !== currentTheme) {
+                        currentTheme = item.theme;
+                        const themeRow = document.createElement('tr');
+                        themeRow.className = 'theme-row';
+                        themeRow.style.setProperty('--row-accent', `#${themeAccent.accent}`);
+                        themeRow.style.setProperty('--row-tint', themeAccent.tint);
+                        const themeNum = item.theme.split('.')[0];
+                        themeRow.innerHTML = `<td colspan="5"><div class="theme-label"><span class="theme-num">${themeNum}</span>${item.theme.replace(/^\d+\.\s*/, '')}</div></td>`;
+                        tbody.appendChild(themeRow);
+                    }
+
+                    const row = document.createElement('tr');
+                    row.dataset.critere = item.critere;
+                    row.dataset.theme = item.themeNumber;
+                    row.style.setProperty('--row-accent', `#${themeAccent.accent}`);
+                    row.style.setProperty('--row-tint', themeAccent.tint);
+
+                    row.innerHTML = `
+                        <td></td>
+                        <td class="critere-num">${item.critere}</td>
+                        <td>${item.intitule}</td>
+                        <td class="compliance-select">
+                            <select class="compliance-status">
+                                <option value="">Sélectionner</option>
+                                <option value="c">Conforme</option>
+                                <option value="nc">Non conforme</option>
+                                <option value="na">Non applicable</option>
+                            </select>
+                        </td>
+                        <td class="comment-cell">
+                            <textarea class="comment-input" placeholder="Justification obligatoire si non conforme..." rows="2"></textarea>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+
+            // ==================== CHARGEMENT/SAUVEGARDE ====================
+            function loadFromStorage() {
+                const saved = localStorage.getItem('accessibilityComplianceData');
+                if (!saved) return;
+
+                try {
+                    const data = JSON.parse(saved);
+                    if (data.documentInfo) {
+                        document.getElementById('doc-name').value = data.documentInfo.name || '';
+                        document.getElementById('doc-type').value = data.documentInfo.type || '';
+                        document.getElementById('doc-date').value = data.documentInfo.date || '';
+                        document.getElementById('evaluator').value = data.documentInfo.evaluator || '';
+                        document.getElementById('evalue').value = data.documentInfo.evalue || '';
+                        updateWeekNumber();
+                    }
+
+                    if (data.complianceData) {
+                        complianceData = data.complianceData;
+                        document.querySelectorAll('[data-critere]').forEach(row => {
+                            const critere = row.dataset.critere;
+                            const itemData = complianceData[critere];
+                            if (!itemData) return;
+
+                            const select = row.querySelector('.compliance-status');
+                            const comment = row.querySelector('.comment-input');
+                            
+                            if (select) select.value = itemData.status || '';
+                            if (comment) {
+                                comment.value = itemData.comment || '';
+                                if (itemData.status === 'nc') comment.classList.add('show');
+                            }
+                        });
+                        updateStatusSummary();
+                        updateQualityNoteDisplay();
+                    }
+                } catch (e) {
+                    console.error('Erreur de chargement:', e);
+                }
+            }
+
+            function saveToStorage() {
+                const docName = document.getElementById('doc-name').value;
+                if (!docName) {
+                    alert('Veuillez saisir le nom du document');
+                    document.getElementById('doc-name').focus();
+                    return false;
+                }
+
+                const saveData = {
+                    documentInfo: {
+                        name: docName,
+                        type: document.getElementById('doc-type').value,
+                        date: document.getElementById('doc-date').value,
+                        evaluator: document.getElementById('evaluator').value,
+                        evalue: document.getElementById('evalue').value,
+                        weekNumber: document.getElementById('week-number').value
+                    },
+                    complianceData: complianceData,
+                    timestamp: new Date().toISOString()
+                };
+                
+                localStorage.setItem('accessibilityComplianceData', JSON.stringify(saveData));
+                return true;
+            }
+
+            // ==================== IMPORT DEPUIS UNE FICHE EXCEL ====================
+            function normalizeText(s) {
+                return (s || '').toString()
+                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                    .toLowerCase().trim();
+            }
+
+            function mapStatusValue(raw) {
+                const v = normalizeText(raw);
+                if (!v) return '';
+                if (v === 'c' || v === 'conforme') return 'c';
+                if (v === 'nc' || v.includes('non conforme')) return 'nc';
+                if (v === 'na' || v.includes('non applicable')) return 'na';
+                return ''; // NT / Non traité / Non renseigné / inconnu
+            }
+
+            // Recherche, sur toutes les feuilles, la ligne d'en-têtes contenant "Critère" et "Statut"
+            function findCriteriaSheet(workbook) {
+                for (const sheetName of workbook.SheetNames) {
+                    const sheet = workbook.Sheets[sheetName];
+                    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+                    for (let i = 0; i < Math.min(rows.length, 15); i++) {
+                        const headerRow = rows[i].map(normalizeText);
+                        const critIdx = headerRow.findIndex(c => c.includes('critere'));
+                        const statutIdx = headerRow.findIndex(c => c === 'statut' || c.startsWith('statut'));
+                        if (critIdx !== -1 && statutIdx !== -1) {
+                            return { sheetName, rows, headerRowIndex: i, critIdx, statutIdx, headerRow };
+                        }
+                    }
+                }
+                return null;
+            }
+
+            function importFromExcel(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const found = findCriteriaSheet(workbook);
+
+                        if (!found) {
+                            alert("Impossible de trouver, dans ce fichier, une feuille contenant les colonnes \"Critère\" et \"Statut\". Vérifiez qu'il s'agit bien d'une fiche compatible.");
+                            return;
+                        }
+
+                        const { rows, headerRowIndex, critIdx, statutIdx, headerRow } = found;
+
+                        // Colonne de commentaire : priorité à une colonne "Commentaires en cas de dérogations..."
+                        // (justification textuelle), sinon repli sur toute colonne "Commentaires",
+                        // sinon sur la colonne "Dérogation / Exemption" (simple O/N)
+                        let commentIdx = headerRow.findIndex(c => c.includes('commentaire'));
+                        if (commentIdx === -1) commentIdx = headerRow.findIndex(c => c.includes('derogation'));
+
+                        let filled = 0;
+                        let unmatched = 0;
+
+                        for (let i = headerRowIndex + 1; i < rows.length; i++) {
+                            const row = rows[i];
+                            if (!row) continue;
+                            const critere = (row[critIdx] || '').toString().trim();
+                            if (!critere) continue;
+
+                            if (!complianceData.hasOwnProperty(critere)) {
+                                unmatched++;
+                                continue;
+                            }
+
+                            const status = mapStatusValue(row[statutIdx]);
+                            const comment = commentIdx !== -1 ? (row[commentIdx] || '').toString().trim() : '';
+
+                            complianceData[critere].status = status;
+                            complianceData[critere].comment = (status === 'nc') ? comment : '';
+                            filled++;
+                        }
+
+                        // Pré-remplissage du nom du document si le champ est vide
+                        const docNameField = document.getElementById('doc-name');
+                        if (!docNameField.value) {
+                            const firstSheet = workbook.Sheets[found.sheetName];
+                            const a1 = firstSheet['A1'] ? firstSheet['A1'].v : '';
+                            docNameField.value = (a1 && a1.toString().trim()) || file.name.replace(/\.(xlsx|xls)$/i, '');
+                        }
+
+                        // Rafraîchissement du tableau à l'écran
+                        document.querySelectorAll('[data-critere]').forEach(rowEl => {
+                            const critere = rowEl.dataset.critere;
+                            const itemData = complianceData[critere];
+                            if (!itemData) return;
+
+                            const select = rowEl.querySelector('.compliance-status');
+                            const commentInput = rowEl.querySelector('.comment-input');
+
+                            if (select) select.value = itemData.status || '';
+                            if (commentInput) {
+                                commentInput.value = itemData.comment || '';
+                                commentInput.classList.toggle('show', itemData.status === 'nc');
+                            }
+                        });
+
+                        updateStatusSummary();
+                        updateQualityNoteDisplay();
+
+                        alert(`Import terminé : ${filled} critère(s) importé(s) depuis "${found.sheetName}"` +
+                              (unmatched ? `, ${unmatched} ligne(s) ignorée(s) (critère non reconnu).` : '.'));
+                    } catch (err) {
+                        console.error(err);
+                        alert("Erreur lors de la lecture du fichier : " + err.message);
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            }
+
+            // ==================== EXPORT EXCEL ====================
+            function createSummarySheet(wb) {
+                const docName = document.getElementById('doc-name').value || "Non spécifié";
+                const docType = document.getElementById('doc-type').value || "Non spécifié";
+                const docDate = document.getElementById('doc-date').value || "Non spécifiée";
+                const evaluator = document.getElementById('evaluator').value || "Non spécifié";
+                const evalue = document.getElementById('evalue').value || "Non spécifié";
+                const weekNumber = document.getElementById('week-number').value || "Non calculé";
+
+                const counts = calculateStats();
+                const evaluated = counts.c + counts.nc;
+                const note = evaluated > 0 ? (counts.c / evaluated) * 100 : 0;
+                const status = note >= 85 ? "CONFORME (≥85%)" : "NON CONFORME (<85%)";
+
+                // Construction des données
+                const summaryData = [
+                    ["RAPPORT DE CONFORMITÉ ACCESSIBILITÉ"],
+                    [],
+                    ["INFORMATIONS DU DOCUMENT"],
+                    ["Nom du document:", docName],
+                    ["Type de document:", docType],
+                    ["Date d'évaluation:", docDate],
+                    ["Évaluateur:", evaluator],
+                    ["Évalué (Agent):", evalue],
+                    ["Numéro de semaine ISO:", weekNumber],
+                    ["Date d'export:", new Date().toLocaleDateString('fr-FR')],
+                    [],
+                    ["NOTE DE QUALITÉ"],
+                    ["Note sur 100:", `${note.toFixed(1)}/100`],
+                    ["Pourcentage de conformité:", `${note.toFixed(1)}%`],
+                    ["Statut:", status],
+                    [],
+                    ["RÉSUMÉ DES RÉSULTATS"],
+                    ["Statut", "Nombre", "Pourcentage"],
+                    ["Conforme", counts.c, counts.total > 0 ? (counts.c / counts.total * 100).toFixed(1) + "%" : "0%"],
+                    ["Non conforme", counts.nc, counts.total > 0 ? (counts.nc / counts.total * 100).toFixed(1) + "%" : "0%"],
+                    ["Non applicable", counts.na, counts.total > 0 ? (counts.na / counts.total * 100).toFixed(1) + "%" : "0%"],
+                    ["Non renseigné", counts.nr, counts.total > 0 ? (counts.nr / counts.total * 100).toFixed(1) + "%" : "0%"],
+                    ["TOTAL", counts.total, "100%"],
+                    [],
+                    ["DÉTAILS PAR THÈME"],
+                    ["Thème", "Conforme", "Non conforme", "Non applicable", "Non renseigné", "Total"]
+                ];
+
+                // Stats par thème
+                const themeStats = {};
+                CRITERIA_DATA.forEach(item => {
+                    if (!themeStats[item.themeNumber]) {
+                        themeStats[item.themeNumber] = {
+                            theme: item.theme || `Thème ${item.themeNumber}`,
+                            c: 0, nc: 0, na: 0, nr: 0, total: 0
+                        };
+                    }
+                    const stat = themeStats[item.themeNumber];
+                    stat.total++;
+                    const status = complianceData[item.critere]?.status;
+                    if (status === 'c') stat.c++;
+                    else if (status === 'nc') stat.nc++;
+                    else if (status === 'na') stat.na++;
+                    else stat.nr++;
+                });
+
+                Object.values(themeStats).forEach(stat => {
+                    summaryData.push([stat.theme, stat.c, stat.nc, stat.na, stat.nr, stat.total]);
+                });
+
+                // Création de la feuille
+                const ws = XLSX.utils.aoa_to_sheet(summaryData);
+
+                // Largeurs de colonnes
+                ws['!cols'] = [
+                    { wch: 40 }, { wch: 20 }, { wch: 15 }, 
+                    { wch: 15 }, { wch: 15 }, { wch: 15 }
+                ];
+
+                // Fusions
+                ws['!merges'] = [
+                    { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },
+                    { s: { r: 2, c: 0 }, e: { r: 2, c: 5 } },
+                    { s: { r: 11, c: 0 }, e: { r: 11, c: 5 } },
+                    { s: { r: 16, c: 0 }, e: { r: 16, c: 5 } },
+                    { s: { r: 24, c: 0 }, e: { r: 24, c: 5 } }
+                ];
+
+                // Application des styles
+                const range = XLSX.utils.decode_range(ws['!ref']);
+                for (let R = range.s.r; R <= range.e.r; R++) {
+                    for (let C = range.s.c; C <= range.e.c; C++) {
+                        const cell = ws[XLSX.utils.encode_cell({ c: C, r: R })];
+                        if (!cell) continue;
+
+                        const style = { font: {}, fill: {}, alignment: {}, border: {} };
+
+                        // Titre principal
+                        if (R === 0) {
+                            style.font = { sz: 18, bold: true, color: { rgb: "2C3E50" } };
+                            style.alignment = { horizontal: "center" };
+                        }
+                        // En-têtes de sections
+                        else if ([2, 11, 16, 24].includes(R)) {
+                            style.font = { sz: 14, bold: true, color: { rgb: "FFFFFF" } };
+                            style.fill = { fgColor: { rgb: "4A6491" } };
+                        }
+                        // En-têtes de tableaux (lignes de colonnes : Statut/Nombre/Pourcentage et Thème/Conforme/...)
+                        else if ([17, 25].includes(R)) {
+                            style.font = { bold: true, color: { rgb: "FFFFFF" } };
+                            style.fill = { fgColor: { rgb: "2C3E50" } };
+                            style.border = {
+                                top: { style: "thin", color: { rgb: "000000" } },
+                                bottom: { style: "thin", color: { rgb: "000000" } },
+                                left: { style: "thin", color: { rgb: "000000" } },
+                                right: { style: "thin", color: { rgb: "000000" } }
+                            };
+                        }
+                        // Lignes de données
+                        else if (R >= 3) {
+                            style.border = {
+                                bottom: { style: "thin", color: { rgb: "CCCCCC" } },
+                                left: { style: "thin", color: { rgb: "CCCCCC" } },
+                                right: { style: "thin", color: { rgb: "CCCCCC" } }
+                            };
+
+                            // Mise en évidence de la note sur 100 (fond vert/rouge, comme le rapport de référence)
+                            if (R === 12 && C === 1) {
+                                style.font = { bold: true, sz: 13, color: { rgb: note >= 85 ? "006100" : "9C0006" } };
+                                style.fill = { fgColor: { rgb: note >= 85 ? "92D050" : "FFC7CE" } };
+                            }
+                            // Couleur conditionnelle pour le statut
+                            if (R === 14 && C === 1) {
+                                style.font = { bold: true, color: { rgb: note >= 85 ? "006100" : "9C0006" } };
+                            }
+                        }
+
+                        cell.s = style;
+                    }
+                }
+
+                XLSX.utils.book_append_sheet(wb, ws, "Résumé");
+            }
+
+            function exportToExcel() {
+                // Vérifications
+                const docName = document.getElementById('doc-name').value;
+                if (!docName) {
+                    alert('Veuillez saisir le nom du document');
+                    document.getElementById('doc-name').focus();
+                    return;
+                }
+
+                for (const [critere, data] of Object.entries(complianceData)) {
+                    if (data.status === 'nc' && !data.comment?.trim()) {
+                        alert(`Le critère ${critere} est "Non conforme" sans commentaire`);
+                        const row = document.querySelector(`[data-critere="${critere}"]`);
+                        if (row) {
+                            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            row.querySelector('.comment-input').classList.add('show').focus();
+                        }
+                        return;
+                    }
+                }
+
+                // Création du classeur
+                document.getElementById('loading').style.display = 'block';
+                const wb = XLSX.utils.book_new();
+
+                // Feuille Conformité
+                const wsData = [["Thème", "Critère", "Intitulé", "Conformité", "Commentaire"]];
+                const mergeRanges = [];
+                let currentTheme = "";
+                let currentThemeRow = 2;
+
+                CRITERIA_DATA.forEach((item, index) => {
+                    const data = complianceData[item.critere] || {};
+                    const conformite = data.status === 'c' ? "Conforme" : 
+                                      data.status === 'nc' ? "Non conforme" : 
+                                      data.status === 'na' ? "Non applicable" : "Non renseigné";
+
+                    if (item.theme && item.theme !== currentTheme) {
+                        currentTheme = item.theme;
+                        currentThemeRow = wsData.length + 1;
+                        wsData.push([currentTheme, item.critere, item.intitule, conformite, data.comment || ""]);
+                    } else {
+                        wsData.push(["", item.critere, item.intitule, conformite, data.comment || ""]);
+                    }
+
+                    if (index === CRITERIA_DATA.length - 1 || 
+                        (CRITERIA_DATA[index + 1] && CRITERIA_DATA[index + 1].theme)) {
+                        if (currentTheme && wsData.length > currentThemeRow) {
+                            mergeRanges.push({
+                                s: { r: currentThemeRow - 1, c: 0 },
+                                e: { r: wsData.length - 1, c: 0 }
+                            });
+                        }
+                    }
+                });
+
+                const ws = XLSX.utils.aoa_to_sheet(wsData);
+                ws['!cols'] = [{ wch: 30 }, { wch: 10 }, { wch: 80 }, { wch: 15 }, { wch: 50 }];
+                ws['!merges'] = mergeRanges;
+
+                // Styles pour la feuille Conformité
+                const range = XLSX.utils.decode_range(ws['!ref']);
+                for (let R = range.s.r; R <= range.e.r; R++) {
+                    for (let C = range.s.c; C <= range.e.c; C++) {
+                        const cell = ws[XLSX.utils.encode_cell({ c: C, r: R })];
+                        if (!cell) continue;
+
+                        const style = { font: {}, fill: {}, alignment: {}, border: {} };
+
+                        if (R === 0) {
+                            style.font = { bold: true, color: { rgb: "FFFFFF" } };
+                            style.fill = { fgColor: { rgb: "2C3E50" } };
+                            style.alignment = { horizontal: "center", vertical: "center" };
+                            style.border = {
+                                top: { style: "thin", color: { rgb: "1B75BC" } },
+                                bottom: { style: "thin", color: { rgb: "1B75BC" } },
+                                left: { style: "thin", color: { rgb: "1B75BC" } },
+                                right: { style: "thin", color: { rgb: "1B75BC" } }
+                            };
+                        }
+                        else if (R >= 1 && cell.v && cell.v.toString().match(/^\d+\.\s/)) {
+                            style.font = { bold: true, sz: 12, color: { rgb: "1B75BC" } };
+                            style.alignment = { horizontal: "center", vertical: "center" };
+                            style.border = {
+                                top: { style: "medium", color: { rgb: "1B75BC" } },
+                                bottom: { style: "thin", color: { rgb: "1B75BC" } },
+                                left: { style: "thin", color: { rgb: "1B75BC" } },
+                                right: { style: "thin", color: { rgb: "1B75BC" } }
+                            };
+                            const themeNum = parseInt(cell.v.split('.')[0]);
+                            if (themeNum >= 1 && themeNum <= 10) {
+                                style.fill = { fgColor: { rgb: THEME_COLORS[themeNum - 1] } };
+                            }
+                        }
+                        else if (R > 0 && C <= 4) {
+                            style.border = {
+                                top: { style: "thin", color: { rgb: "CCCCCC" } },
+                                bottom: { style: "thin", color: { rgb: "CCCCCC" } },
+                                left: { style: "thin", color: { rgb: "CCCCCC" } },
+                                right: { style: "thin", color: { rgb: "CCCCCC" } }
+                            };
+                            style.alignment = { vertical: "top", wrapText: true };
+
+                            if (C === 3) {
+                                style.alignment.horizontal = "center";
+                                if (cell.v === "Conforme") style.font = { bold: true, color: { rgb: "006400" } };
+                                else if (cell.v === "Non conforme") style.font = { bold: true, color: { rgb: "8B0000" } };
+                                else if (cell.v === "Non applicable") style.font = { color: { rgb: "696969" } };
+                            }
+                        }
+
+                        cell.s = style;
+                    }
+                }
+
+                XLSX.utils.book_append_sheet(wb, ws, "Conformité");
+                createSummarySheet(wb);
+
+                // Export
+                setTimeout(() => {
+                    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'binary' });
+                    const buf = new ArrayBuffer(wbout.length);
+                    const view = new Uint8Array(buf);
+                    for (let i = 0; i < wbout.length; i++) view[i] = wbout.charCodeAt(i) & 0xFF;
+
+                    const blob = new Blob([buf], { type: "application/octet-stream" });
+                    const link = document.createElement("a");
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `RAPDF_${docName.replace(/[^a-z0-9]/gi, '_').substring(0, 50)}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+                    link.click();
+
+                    document.getElementById('loading').style.display = 'none';
+                    alert(`Export réussi !\nNote: ${calculateQualityNote().toFixed(1)}/100`);
+                }, 500);
+            }
+
+            // ==================== INITIALISATION ====================
+            function init() {
+                // Date du jour
+                document.getElementById('current-date').textContent = 
+                    new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                
+                const today = new Date();
+                document.getElementById('doc-date').valueAsDate = today;
+                updateWeekNumber();
+
+                // Génération du tableau
+                generateComplianceTable();
+
+                // Initialisation des données
+                CRITERIA_DATA.forEach(item => {
+                    complianceData[item.critere] = { status: "", comment: "", themeNumber: item.themeNumber };
+                });
+
+                // Chargement des données sauvegardées
+                loadFromStorage();
+
+                // Mise à jour de l'interface
+                updateStatusSummary();
+                updateQualityNoteDisplay();
+
+                // Écouteurs d'événements
+                document.addEventListener('change', e => {
+                    if (e.target.classList.contains('compliance-status')) {
+                        const row = e.target.closest('tr');
+                        const critere = row.dataset.critere;
+                        const status = e.target.value;
+                        const commentInput = row.querySelector('.comment-input');
+
+                        complianceData[critere].status = status;
+
+                        if (status === 'nc') {
+                            commentInput.classList.add('show');
+                        } else {
+                            commentInput.classList.remove('show');
+                            commentInput.value = '';
+                            complianceData[critere].comment = '';
+                        }
+
+                        updateStatusSummary();
+                        updateQualityNoteDisplay();
+                    }
+                });
+
+                document.addEventListener('input', e => {
+                    if (e.target.classList.contains('comment-input')) {
+                        const row = e.target.closest('tr');
+                        const critere = row.dataset.critere;
+                        complianceData[critere].comment = e.target.value;
+                    }
+                });
+
+                document.getElementById('doc-date').addEventListener('change', updateWeekNumber);
+
+                document.getElementById('export-btn').addEventListener('click', exportToExcel);
+
+                document.getElementById('import-btn').addEventListener('click', () => {
+                    document.getElementById('import-file-input').click();
+                });
+
+                document.getElementById('import-file-input').addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (file) importFromExcel(file);
+                    e.target.value = ''; // permet de réimporter le même fichier plus tard
+                });
+                
+                document.getElementById('reset-btn').addEventListener('click', () => {
+                    if (confirm('Réinitialiser toutes les données ?')) {
+                        document.getElementById('doc-name').value = '';
+                        document.getElementById('doc-type').value = '';
+                        document.getElementById('evaluator').value = '';
+                        document.getElementById('evalue').value = '';
+                        document.getElementById('doc-date').valueAsDate = new Date();
+                        updateWeekNumber();
+
+                        complianceData = {};
+                        CRITERIA_DATA.forEach(item => {
+                            complianceData[item.critere] = { status: "", comment: "", themeNumber: item.themeNumber };
+                        });
+
+                        document.querySelectorAll('.compliance-status').forEach(s => s.value = '');
+                        document.querySelectorAll('.comment-input').forEach(i => {
+                            i.value = '';
+                            i.classList.remove('show');
+                        });
+
+                        localStorage.removeItem('accessibilityComplianceData');
+                        updateStatusSummary();
+                        updateQualityNoteDisplay();
+                        alert('Formulaire réinitialisé');
+                    }
+                });
+
+                document.getElementById('save-btn').addEventListener('click', () => {
+                    if (saveToStorage()) alert('Données sauvegardées');
+                });
+            }
+
+            // Démarrage
+            document.addEventListener('DOMContentLoaded', init);
+        })();
+    </script>
+</body>
+</html>
